@@ -1,16 +1,36 @@
 """
-Basic test for Vercel Python runtime
+Vercel Python serverless function
 """
+from http.server import BaseHTTPRequestHandler
 import json
 
-def handler(request):
-    return {
-        'statusCode': 200,
-        'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps({
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        
+        response = {
             'message': 'Hello from Vercel!',
             'status': 'working',
-            'method': request.get('method', 'unknown'),
-            'path': request.get('path', 'unknown')
-        })
-    }
+            'method': 'GET',
+            'path': self.path
+        }
+        
+        self.wfile.write(json.dumps(response).encode())
+        return
+    
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        
+        response = {
+            'message': 'Hello from Vercel!',
+            'status': 'working',
+            'method': 'POST',
+            'path': self.path
+        }
+        
+        self.wfile.write(json.dumps(response).encode())
+        return

@@ -3,6 +3,6 @@ Vercel Entry Point for FastAPI Application
 """
 from app.main import app
 
-# Export the FastAPI app for Vercel
-# Vercel will automatically detect this and serve it as a serverless function
-# Updated for proper deployment
+# Export the FastAPI app as handler for Vercel
+# This is the entry point that Vercel will use
+handler = app

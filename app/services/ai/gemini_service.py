@@ -13,9 +13,10 @@ from app.schemas.ai import Platform, ContentType, Tone
 
 logger = structlog.get_logger()
 
-# Configure Gemini
+# Initialize Gemini client
+gemini_client = None
 if settings.GEMINI_API_KEY:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 # Platform character limits and specifications
 PLATFORM_SPECS = {
@@ -29,24 +30,17 @@ PLATFORM_SPECS = {
 
 
 class GeminiService:
-    """Service for interacting with Google Gemini AI matching original implementation"""
+    """Service for generating AI content using Google Gemini"""
     
     def __init__(self):
         self.model_name = "gemini-2.0-flash-exp"  # Match original model
-        self.model = None
-        if settings.GEMINI_API_KEY:
-            try:
-                self.model = genai.GenerativeModel(
-                    self.model_name,
-                    generation_config={
-                        "temperature": 0.9,
-                        "top_p": 0.95,
-                        "top_k": 40,
-                        "max_output_tokens": 8192,
-                    }
-                )
-            except Exception as e:
-                logger.error("gemini_init_error", error=str(e))
+        self.client = gemini_client
+        self.generation_config = {
+            "temperature": 0.9,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 8192,
+        }
     
     async def generate_content(
         self,
@@ -70,7 +64,7 @@ class GeminiService:
         Returns:
             PostContent with platform-specific text, imageSuggestion, videoSuggestion
         """
-        if not self.model:
+        if not self.client:
             raise ExternalAPIError("Gemini", "GEMINI_API_KEY environment variable is not set")
         
         try:
@@ -81,8 +75,12 @@ class GeminiService:
             
             logger.info("generating_content", topic=topic[:50], platforms=[p.value for p in platforms])
             
-            # Generate content
-            response = self.model.generate_content(prompt)
+            # Generate content using new API
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=self.generation_config
+            )
             response_text = response.text
             
             # Parse response to extract JSON

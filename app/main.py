@@ -127,12 +127,46 @@ async def shutdown_event():
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
+    """Health check endpoint with service status"""
+    health_status = {
         "status": "healthy",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
+        "services": {}
     }
+    
+    # Check Supabase connection
+    try:
+        from app.services.media_service import media_service
+        # Try to access the supabase client (this will trigger lazy initialization)
+        _ = media_service.supabase
+        health_status["services"]["supabase"] = "connected"
+    except ValueError as e:
+        # Configuration error (placeholder values)
+        health_status["services"]["supabase"] = f"configuration_error: {str(e)}"
+        health_status["status"] = "degraded"
+    except Exception as e:
+        # Connection error
+        health_status["services"]["supabase"] = f"connection_error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    return health_status
+
+
+# Configuration check endpoint for debugging
+@app.get("/config-check")
+async def config_check():
+    """Configuration check endpoint for debugging environment variables"""
+    config_status = {
+        "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
+        "supabase_service_key_configured": settings.SUPABASE_SERVICE_ROLE_KEY != "placeholder-service-key",
+        "database_url_configured": settings.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname",
+        "environment": settings.ENVIRONMENT,
+        "debug": settings.DEBUG
+    }
+    
+    # Don't expose actual values, just whether they're configured
+    return config_status
 
 
 # Include API router

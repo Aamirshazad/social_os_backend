@@ -17,11 +17,26 @@ class MediaService:
     """Service for handling media uploads and storage"""
     
     def __init__(self):
-        self.supabase: Client = create_client(
-            settings.SUPABASE_URL,
-            settings.SUPABASE_SERVICE_ROLE_KEY
-        )
+        self._supabase: Optional[Client] = None
         self.bucket_name = "media"
+    
+    @property
+    def supabase(self) -> Client:
+        """Lazy initialization of Supabase client"""
+        if self._supabase is None:
+            # Validate environment variables
+            if (settings.SUPABASE_URL == "https://placeholder.supabase.co" or 
+                settings.SUPABASE_SERVICE_ROLE_KEY == "placeholder-service-key"):
+                raise ValueError(
+                    "Supabase configuration not properly set. "
+                    "Please configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables."
+                )
+            
+            self._supabase = create_client(
+                settings.SUPABASE_URL,
+                settings.SUPABASE_SERVICE_ROLE_KEY
+            )
+        return self._supabase
     
     async def upload_image(
         self,

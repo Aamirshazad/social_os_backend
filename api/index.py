@@ -1,36 +1,16 @@
 """
-Ultra-simple Python handler for Vercel debugging
+Basic test for Vercel Python runtime
 """
-from http.server import BaseHTTPRequestHandler
 import json
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        
-        response = {
-            "message": "Hello from Vercel!",
-            "status": "working",
-            "path": self.path,
-            "method": "GET"
-        }
-        
-        self.wfile.write(json.dumps(response).encode())
-        return
-    
-    def do_POST(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        
-        response = {
-            "message": "POST received",
-            "status": "working",
-            "path": self.path,
-            "method": "POST"
-        }
-        
-        self.wfile.write(json.dumps(response).encode())
-        return
+def handler(request):
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json'},
+        'body': json.dumps({
+            'message': 'Hello from Vercel!',
+            'status': 'working',
+            'method': request.get('method', 'unknown'),
+            'path': request.get('path', 'unknown')
+        })
+    }

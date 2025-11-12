@@ -9,7 +9,8 @@ from datetime import datetime
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.campaign_service import CampaignService
+# TODO: CampaignService needs to be implemented in new structure
+# from app.services.campaign_service import CampaignService
 import structlog
 
 logger = structlog.get_logger()
@@ -182,7 +183,7 @@ async def get_campaign_posts(
     """
     Get all posts for a campaign
     """
-    from app.services.post_service import PostService
+    from app.application.services.content.post_service import PostService
     
     posts = PostService.get_posts_by_campaign(
         db=db,

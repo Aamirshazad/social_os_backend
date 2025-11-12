@@ -1,8 +1,9 @@
 """
 AI API endpoints
 """
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile, Form
 from typing import List
+from pydantic import BaseModel
 
 from app.dependencies import get_current_active_user
 from app.core.exceptions import ExternalAPIError
@@ -18,8 +19,7 @@ from app.schemas.ai import (
     CampaignBriefRequest,
     CampaignBriefResponse
 )
-from app.services.ai.gemini_service import gemini_service
-from app.services.ai.openai_service import openai_service
+from app.application.services.ai import unified_ai_service
 import structlog
 
 logger = structlog.get_logger()
@@ -38,7 +38,7 @@ async def generate_content(
     Matches original Next.js /api/ai/content/generate endpoint.
     """
     try:
-        content = await gemini_service.generate_content(
+        content = await unified_ai_service.generate_content(
             topic=request.topic,
             platforms=request.platforms,
             content_type=request.content_type,
@@ -77,18 +77,25 @@ async def analyze_engagement(
     
     Provides engagement score and suggestions for improvement.
     """
-    analysis = await gemini_service.analyze_engagement(
-        content=request.content,
-        platform=request.platform
-    )
-    
-    logger.info(
-        "engagement_analyzed",
-        user_id=current_user["id"],
-        platform=request.platform.value
-    )
-    
-    return analysis
+    try:
+        analysis = await unified_ai_service.analyze_engagement(
+            content=request.content,
+            platform=request.platform
+        )
+        
+        logger.info(
+            "engagement_analyzed",
+            user_id=current_user["id"],
+            platform=request.platform.value
+        )
+        
+        return analysis
+    except ExternalAPIError as e:
+        logger.error("engagement_analysis_error", error=str(e))
+        raise
+    except Exception as e:
+        logger.error("engagement_analysis_unexpected_error", error=str(e))
+        raise ExternalAPIError("AI Service", f"Failed to analyze engagement: {str(e)}")
 
 
 @router.post("/media/image/generate", response_model=ImageGenerationResponse)
@@ -97,33 +104,40 @@ async def generate_image(
     current_user: dict = Depends(get_current_active_user)
 ):
     """
-    Generate an image using DALL-E 3
+    Generate an image using AI
     
     Creates a unique image based on the prompt.
     """
-    result = await openai_service.generate_image(
-        prompt=request.prompt,
-        size=request.size,
-        style=request.style
-    )
-    
-    logger.info(
-        "image_generated",
-        user_id=current_user["id"],
-        prompt=request.prompt[:50]
-    )
-    
-    return {
-        "image_url": result["image_url"],
-        "prompt": request.prompt,
-        "revised_prompt": result.get("revised_prompt")
-    }
+    try:
+        result = await unified_ai_service.generate_image(
+            prompt=request.prompt,
+            size=request.size,
+            style=request.style
+        )
+        
+        logger.info(
+            "image_generated",
+            user_id=current_user["id"],
+            prompt=request.prompt[:50]
+        )
+        
+        return {
+            "image_url": result["image_url"],
+            "prompt": request.prompt,
+            "revised_prompt": result.get("revised_prompt")
+        }
+    except ExternalAPIError as e:
+        logger.error("image_generation_error", error=str(e))
+        raise
+    except Exception as e:
+        logger.error("image_generation_unexpected_error", error=str(e))
+        raise ExternalAPIError("AI Service", f"Failed to generate image: {str(e)}")
 
 
 @router.post("/media/image/edit")
 async def edit_image(
     image: UploadFile = File(...),
-    prompt: str = "",
+    prompt: str = Form(""),
     current_user: dict = Depends(get_current_active_user)
 ):
     """
@@ -131,19 +145,26 @@ async def edit_image(
     
     Uploads an image and applies AI-based editing based on the prompt.
     """
-    image_bytes = await image.read()
-    
-    result = await openai_service.edit_image(
-        image=image_bytes,
-        prompt=prompt
-    )
-    
-    logger.info(
-        "image_edited",
-        user_id=current_user["id"]
-    )
-    
-    return result
+    try:
+        image_bytes = await image.read()
+        
+        result = await unified_ai_service.edit_image(
+            image=image_bytes,
+            prompt=prompt
+        )
+        
+        logger.info(
+            "image_edited",
+            user_id=current_user["id"]
+        )
+        
+        return result
+    except ExternalAPIError as e:
+        logger.error("image_editing_error", error=str(e))
+        raise
+    except Exception as e:
+        logger.error("image_editing_unexpected_error", error=str(e))
+        raise ExternalAPIError("AI Service", f"Failed to edit image: {str(e)}")
 
 
 @router.post("/media/video/generate", response_model=VideoGenerationResponse)
@@ -173,12 +194,26 @@ async def get_video_status(
     """
     Get video generation status
     """
-    # Placeholder response
-    return {
-        "video_id": video_id,
-        "status": "completed",
-        "video_url": "https://example.com/video.mp4"
-    }
+    try:
+        # Placeholder response
+        logger.info(
+            "video_status_checked",
+            user_id=current_user["id"],
+            video_id=video_id
+        )
+        
+        return {
+            "video_id": video_id,
+            "status": "completed",
+            "video_url": "https://example.com/video.mp4"
+        }
+    except Exception as e:
+        logger.error("video_status_error", error=str(e))
+        return {
+            "video_id": video_id,
+            "status": "error",
+            "error": str(e)
+        }
 
 
 @router.post("/campaigns/brief", response_model=CampaignBriefResponse)
@@ -191,63 +226,111 @@ async def generate_campaign_brief(
     
     Creates a detailed campaign strategy with content calendar and KPIs.
     """
-    brief = await gemini_service.generate_campaign_brief(
-        goals=request.goals,
-        target_audience=request.target_audience,
-        platforms=request.platforms,
-        duration=request.duration
-    )
-    
-    logger.info(
-        "campaign_brief_generated",
-        user_id=current_user["id"]
-    )
-    
-    return brief
+    try:
+        brief = await unified_ai_service.generate_campaign_brief(
+            goals=request.goals,
+            target_audience=request.target_audience,
+            platforms=request.platforms,
+            duration=request.duration or "1 week"
+        )
+        
+        logger.info(
+            "campaign_brief_generated",
+            user_id=current_user["id"]
+        )
+        
+        return brief
+    except ExternalAPIError as e:
+        logger.error("campaign_brief_error", error=str(e))
+        raise
+    except Exception as e:
+        logger.error("campaign_brief_unexpected_error", error=str(e))
+        raise ExternalAPIError("AI Service", f"Failed to generate campaign brief: {str(e)}")
 
+
+class CampaignIdeasRequest(BaseModel):
+    topic: str
+    platforms: List[str]
 
 @router.post("/campaigns/ideas")
 async def generate_campaign_ideas(
-    topic: str,
-    platforms: List[str],
+    request: CampaignIdeasRequest,
     current_user: dict = Depends(get_current_active_user)
 ):
     """
     Generate campaign ideas based on a topic
     """
-    # Use Gemini to generate ideas
-    prompt = f"Generate 5 creative social media campaign ideas for: {topic} on platforms: {', '.join(platforms)}"
-    
-    ideas = await gemini_service._generate(prompt)
-    
-    return {
-        "topic": topic,
-        "ideas": ideas,
-        "platforms": platforms
-    }
+    try:
+        # Use Gemini to generate ideas
+        prompt = f"Generate 5 creative social media campaign ideas for: {request.topic} on platforms: {', '.join(request.platforms)}"
+        
+        ideas = await unified_ai_service._generate(prompt)
+        
+        logger.info(
+            "campaign_ideas_generated",
+            user_id=current_user["id"],
+            topic=request.topic[:50]
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "topic": request.topic,
+                "ideas": ideas,
+                "platforms": request.platforms
+            }
+        }
+    except Exception as e:
+        logger.error("campaign_ideas_error", error=str(e))
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
+
+class PromptImprovementRequest(BaseModel):
+    prompt: str
 
 @router.post("/prompts/improve")
 async def improve_prompt(
-    prompt: str,
+    request: PromptImprovementRequest,
     current_user: dict = Depends(get_current_active_user)
 ):
     """
     Improve a prompt for better AI generation
     """
-    improved = await gemini_service.improve_prompt(prompt)
-    
-    return {
-        "original": prompt,
-        "improved": improved
-    }
+    try:
+        improved = await unified_ai_service.improve_prompt(request.prompt)
+        
+        logger.info(
+            "prompt_improved",
+            user_id=current_user["id"],
+            original_length=len(request.prompt)
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "original": request.prompt,
+                "improved": improved
+            }
+        }
+    except Exception as e:
+        logger.error("prompt_improvement_error", error=str(e))
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
+
+class RepurposeContentRequest(BaseModel):
+    long_form_content: str
+    platforms: List[str]
+    number_of_posts: int = 5
 
 @router.post("/content/repurpose")
 async def repurpose_content(
-    long_form_content: str,
-    platforms: List[str],
-    number_of_posts: int = 5,
+    request: RepurposeContentRequest,
     current_user: dict = Depends(get_current_active_user)
 ):
     """
@@ -257,12 +340,12 @@ async def repurpose_content(
     try:
         # Convert string platforms to Platform enum
         from app.schemas.ai import Platform
-        platform_enums = [Platform(p) for p in platforms]
+        platform_enums = [Platform(p) for p in request.platforms]
         
-        posts = await gemini_service.repurpose_content(
-            long_form_content=long_form_content,
+        posts = await unified_ai_service.repurpose_content(
+            long_form_content=request.long_form_content,
             platforms=platform_enums,
-            number_of_posts=number_of_posts
+            number_of_posts=request.number_of_posts
         )
         
         logger.info(
@@ -284,10 +367,13 @@ async def repurpose_content(
         }
 
 
+class StrategistChatRequest(BaseModel):
+    message: str
+    history: List[dict] = []
+
 @router.post("/content/strategist/chat")
 async def strategist_chat(
-    message: str,
-    history: List[dict] = [],
+    request: StrategistChatRequest,
     current_user: dict = Depends(get_current_active_user)
 ):
     """
@@ -297,9 +383,9 @@ async def strategist_chat(
     Matches original /api/ai/content/strategist/chat endpoint
     """
     try:
-        result = await gemini_service.content_strategist_chat(
-            message=message,
-            history=history
+        result = await unified_ai_service.content_strategist_chat(
+            message=request.message,
+            history=request.history
         )
         
         logger.info(

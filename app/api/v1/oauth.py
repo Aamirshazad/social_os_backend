@@ -9,7 +9,8 @@ import structlog
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.credential_service import CredentialService
+# TODO: CredentialService needs to be implemented in new structure
+# from app.services.credential_service import CredentialService
 from app.config import settings
 
 logger = structlog.get_logger()
@@ -357,12 +358,12 @@ async def facebook_callback(
         if platform != "facebook":
             raise HTTPException(status_code=400, detail="Invalid state parameter")
         
-        # Import Facebook service
-        from app.services.platforms.facebook_service import FacebookService
-        facebook_service = FacebookService()
+        # Import Facebook OAuth handler
+        from app.infrastructure.external.platforms.facebook import FacebookOAuthHandler
+        facebook_oauth = FacebookOAuthHandler()
         
         # Exchange code for token
-        token_data = await facebook_service.exchange_code_for_token(
+        token_data = await facebook_oauth.exchange_code_for_token(
             code=code,
             client_id=settings.FACEBOOK_CLIENT_ID,
             client_secret=settings.FACEBOOK_CLIENT_SECRET,
@@ -370,7 +371,7 @@ async def facebook_callback(
         )
         
         # Get user profile
-        profile_data = await facebook_service.get_user_profile(
+        profile_data = await facebook_oauth.get_user_profile(
             access_token=token_data["access_token"]
         )
         
@@ -454,12 +455,12 @@ async def instagram_callback(
         if platform != "instagram":
             raise HTTPException(status_code=400, detail="Invalid state parameter")
         
-        # Import Instagram service
-        from app.services.platforms.instagram_service import InstagramService
-        instagram_service = InstagramService()
+        # Import Instagram OAuth handler
+        from app.infrastructure.external.platforms.instagram import InstagramOAuthHandler
+        instagram_oauth = InstagramOAuthHandler()
         
         # Exchange code for token
-        token_data = await instagram_service.exchange_code_for_token(
+        token_data = await instagram_oauth.exchange_code_for_token(
             code=code,
             client_id=settings.FACEBOOK_CLIENT_ID,
             client_secret=settings.FACEBOOK_CLIENT_SECRET,
@@ -467,7 +468,7 @@ async def instagram_callback(
         )
         
         # Verify credentials and get Instagram account info
-        credentials_info = await instagram_service.verify_credentials(
+        credentials_info = await instagram_oauth.verify_credentials(
             access_token=token_data["access_token"]
         )
         
@@ -475,7 +476,7 @@ async def instagram_callback(
             raise HTTPException(status_code=400, detail="No Instagram business account found")
         
         # Get user profile
-        profile_data = await instagram_service.get_user_profile(
+        profile_data = await instagram_oauth.get_user_profile(
             access_token=token_data["access_token"],
             instagram_account_id=credentials_info["user_id"]
         )
@@ -561,12 +562,12 @@ async def linkedin_callback(
         if platform != "linkedin":
             raise HTTPException(status_code=400, detail="Invalid state parameter")
         
-        # Import LinkedIn service
-        from app.services.platforms.linkedin_service import LinkedInService
-        linkedin_service = LinkedInService()
+        # Import LinkedIn OAuth handler
+        from app.infrastructure.external.platforms.linkedin import LinkedInOAuthHandler
+        linkedin_oauth = LinkedInOAuthHandler()
         
         # Exchange code for token
-        token_data = await linkedin_service.exchange_code_for_token(
+        token_data = await linkedin_oauth.exchange_code_for_token(
             code=code,
             client_id=settings.LINKEDIN_CLIENT_ID,
             client_secret=settings.LINKEDIN_CLIENT_SECRET,
@@ -574,7 +575,7 @@ async def linkedin_callback(
         )
         
         # Get user profile
-        profile_data = await linkedin_service.get_user_profile(
+        profile_data = await linkedin_oauth.get_user_profile(
             access_token=token_data["access_token"]
         )
         
@@ -657,12 +658,12 @@ async def tiktok_callback(
         if platform != "tiktok":
             raise HTTPException(status_code=400, detail="Invalid state parameter")
         
-        # Import TikTok service
-        from app.services.platforms.tiktok_service import TikTokService
-        tiktok_service = TikTokService()
+        # Import TikTok OAuth handler
+        from app.infrastructure.external.platforms.tiktok import TikTokOAuthHandler
+        tiktok_oauth = TikTokOAuthHandler()
         
         # Exchange code for token
-        token_data = await tiktok_service.exchange_code_for_token(
+        token_data = await tiktok_oauth.exchange_code_for_token(
             code=code,
             client_id=settings.TIKTOK_CLIENT_ID,
             client_secret=settings.TIKTOK_CLIENT_SECRET,
@@ -670,7 +671,7 @@ async def tiktok_callback(
         )
         
         # Get user profile
-        profile_data = await tiktok_service.get_user_profile(
+        profile_data = await tiktok_oauth.get_user_profile(
             access_token=token_data["access_token"]
         )
         
@@ -755,12 +756,12 @@ async def twitter_callback(
         if platform != "twitter":
             raise HTTPException(status_code=400, detail="Invalid state parameter")
         
-        # Import Twitter service
-        from app.services.platforms.twitter_service import TwitterService
-        twitter_service = TwitterService()
+        # Import Twitter OAuth handler
+        from app.infrastructure.external.platforms.twitter import TwitterOAuthHandler
+        twitter_oauth = TwitterOAuthHandler()
         
         # Exchange code for token
-        token_data = await twitter_service.exchange_code_for_token(
+        token_data = await twitter_oauth.exchange_code_for_token(
             code=code,
             client_id=settings.TWITTER_CLIENT_ID,
             client_secret=settings.TWITTER_CLIENT_SECRET,
@@ -768,7 +769,7 @@ async def twitter_callback(
         )
         
         # Get user profile
-        profile_data = await twitter_service.get_user_profile(
+        profile_data = await twitter_oauth.get_user_profile(
             access_token=token_data["access_token"]
         )
         

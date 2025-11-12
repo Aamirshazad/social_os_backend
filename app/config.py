@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 60
     
     # File Upload
-    MAX_UPLOAD_SIZE: int = 10485760  # 10MB
+    MAX_UPLOAD_SIZE: int = 30485760  # 10MB
     ALLOWED_IMAGE_TYPES: List[str] = [
         "image/jpeg", "image/png", "image/gif", "image/webp"
     ]

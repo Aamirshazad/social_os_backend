@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.thread_service import ThreadService
+# TODO: ThreadService needs to be implemented in new structure
+# from app.services.thread_service import ThreadService
 from app.schemas.thread import (
     CreateThreadRequest,
     UpdateThreadTitleRequest,

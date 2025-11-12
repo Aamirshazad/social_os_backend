@@ -1,15 +1,18 @@
 """
 Authentication API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import ValidationError
+from typing import Dict, Any
 
-from app.database import get_db
+from app.database import get_db, get_async_db
 from app.schemas.auth import LoginRequest, Token, RefreshTokenRequest, RegisterRequest
 from app.schemas.user import UserResponse
-from app.services.auth_service import AuthService
-from app.services.workspace_service import WorkspaceService
-from app.core.security import decode_token
+from app.application.services.auth import AuthenticationService, RegistrationService, TokenService
+from app.application.services.workspace import WorkspaceService
+from app.core.security import decode_token, create_access_token, create_refresh_token
 from app.core.exceptions import AuthenticationError, DuplicateError
 import structlog
 
@@ -17,10 +20,33 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 
+def validate_request_security(request: Request) -> Dict[str, Any]:
+    """
+    Basic request information logging (minimal restrictions)
+    
+    Args:
+        request: FastAPI request object
+    
+    Returns:
+        Dictionary with basic request information
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    
+    # Basic request information (no restrictions, just logging)
+    security_info = {
+        "client_ip": client_ip,
+        "user_agent": user_agent
+    }
+    
+    return security_info
+
+
 @router.post("/register", response_model=Token)
 async def register(
     register_data: RegisterRequest,
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Register a new user
@@ -28,8 +54,11 @@ async def register(
     Creates user account and returns JWT tokens
     """
     try:
+        # Validate request security
+        security_info = validate_request_security(request)
+        
         # Create user
-        user = AuthService.create_user(
+        user = await RegistrationService.create_user(
             db=db,
             email=register_data.email,
             password=register_data.password,
@@ -37,23 +66,36 @@ async def register(
         )
         
         # Get user's workspace
-        workspaces = WorkspaceService.get_user_workspaces(db, str(user.id))
+        workspaces = await WorkspaceService.get_user_workspaces_async(db, str(user.id))
         workspace_id = str(workspaces[0].id) if workspaces else None
         
         # Create tokens
-        tokens = AuthService.create_tokens(user, workspace_id)
+        tokens = TokenService.create_tokens(user, workspace_id)
         
-        logger.info("user_registered", email=register_data.email, user_id=str(user.id))
+        logger.info("user_registered", email=register_data.email, user_id=str(user.id), **security_info)
         
         return tokens
         
     except DuplicateError as e:
+        logger.warning("registration_duplicate", email=register_data.email, **security_info)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e)
         )
+    except ValidationError as e:
+        logger.warning("registration_validation_error", errors=e.errors(), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
+    except ValueError as e:
+        logger.warning("registration_value_error", error=str(e), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
-        logger.error("register_error", error=str(e))
+        logger.error("register_error", error=str(e), **security_info)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed"
@@ -63,7 +105,8 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     login_data: LoginRequest,
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Login endpoint
@@ -71,31 +114,47 @@ async def login(
     Authenticates user and returns JWT tokens
     """
     try:
+        # Validate request security
+        security_info = validate_request_security(request)
+        
         # Authenticate user
-        user = AuthService.authenticate_user(
+        user = await AuthenticationService.authenticate_user(
             db=db,
             email=login_data.email,
             password=login_data.password
         )
         
         # Get user's workspace
-        workspaces = WorkspaceService.get_user_workspaces(db, str(user.id))
+        workspaces = await WorkspaceService.get_user_workspaces_async(db, str(user.id))
         workspace_id = str(workspaces[0].id) if workspaces else None
         
         # Create tokens
-        tokens = AuthService.create_tokens(user, workspace_id)
+        tokens = TokenService.create_tokens(user, workspace_id)
         
-        logger.info("user_logged_in", email=login_data.email, user_id=str(user.id))
+        logger.info("user_logged_in", email=login_data.email, user_id=str(user.id), **security_info)
         
         return tokens
         
     except AuthenticationError as e:
+        logger.warning("login_authentication_error", email=login_data.email, error=str(e), **security_info)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+    except ValidationError as e:
+        logger.warning("login_validation_error", errors=e.errors(), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
+    except ValueError as e:
+        logger.warning("login_value_error", error=str(e), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
-        logger.error("login_error", error=str(e))
+        logger.error("login_error", error=str(e), **security_info)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed"
@@ -105,12 +164,16 @@ async def login(
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
     refresh_data: RefreshTokenRequest,
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Refresh access token using refresh token
     """
     try:
+        # Validate request security
+        security_info = validate_request_security(request)
+        
         # Decode refresh token
         payload = decode_token(refresh_data.refresh_token)
         
@@ -128,6 +191,8 @@ async def refresh_token(
         access_token = create_access_token(token_data)
         new_refresh_token = create_refresh_token(token_data)
         
+        logger.info("token_refreshed", user_id=payload.get("sub"), **security_info)
+        
         return {
             "access_token": access_token,
             "refresh_token": new_refresh_token,
@@ -135,18 +200,41 @@ async def refresh_token(
         }
         
     except AuthenticationError as e:
+        logger.warning("refresh_authentication_error", error=str(e), **security_info)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+    except ValidationError as e:
+        logger.warning("refresh_validation_error", errors=e.errors(), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
+    except ValueError as e:
+        logger.warning("refresh_value_error", error=str(e), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error("refresh_error", error=str(e), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Token refresh failed"
+        )
 
 
 @router.post("/logout")
-async def logout():
+async def logout(request: Request):
     """
     Logout endpoint
     
     In a JWT-based system, logout is typically handled client-side
     by removing the token. This endpoint is for compatibility.
     """
+    # Validate request security
+    security_info = validate_request_security(request)
+    logger.info("user_logged_out", **security_info)
+    
     return {"message": "Successfully logged out"}

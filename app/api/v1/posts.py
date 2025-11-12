@@ -13,7 +13,7 @@ from app.schemas.post import (
     PostResponse,
     PostStatus
 )
-from app.services.post_service import PostService
+from app.application.services.content.post_service import PostService
 import structlog
 
 logger = structlog.get_logger()

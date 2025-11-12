@@ -8,7 +8,8 @@ import base64
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.media_service import media_service
+# TODO: MediaService needs to be implemented in new structure
+# from app.services.media_service import media_service
 from app.config import settings
 import structlog
 

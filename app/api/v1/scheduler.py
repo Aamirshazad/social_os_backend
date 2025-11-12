@@ -9,8 +9,8 @@ from datetime import datetime
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.scheduler_service import SchedulerService
-from app.services.post_service import PostService
+from app.application.services.publishing.scheduler_service import SchedulerService
+from app.application.services.content.post_service import PostService
 import structlog
 
 logger = structlog.get_logger()

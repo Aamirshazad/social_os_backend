@@ -8,7 +8,8 @@ from datetime import datetime
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.activity_service import ActivityService
+# TODO: ActivityService needs to be implemented in new structure
+# from app.services.activity_service import ActivityService
 import structlog
 
 logger = structlog.get_logger()

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_active_user
-from app.services.workspace_service import WorkspaceService
+from app.application.services.workspace.workspace_service import WorkspaceService
 from app.schemas.workspace import WorkspaceResponse
 import structlog
 

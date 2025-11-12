@@ -8,8 +8,9 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.invite_service import InviteService
-from app.services.activity_service import ActivityService
+# TODO: InviteService and ActivityService need to be implemented in new structure
+# from app.services.invite_service import InviteService
+# from app.services.activity_service import ActivityService
 import structlog
 
 logger = structlog.get_logger()

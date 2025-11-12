@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.publishing_service import PublishingService
-from app.services.credential_service import CredentialService
+from app.application.services.publishing import PublisherService as PublishingService
+from app.application.services.auth.authentication_service import AuthenticationService
 import structlog
 
 logger = structlog.get_logger()
@@ -251,11 +251,11 @@ async def facebook_post(
                 detail="Facebook credentials not found"
             )
         
-        # Import and use Facebook service
-        from app.services.platforms.facebook_service import FacebookService
-        facebook_service = FacebookService()
+        # Import and use Facebook publisher
+        from app.infrastructure.external.platforms.facebook import FacebookPublisher
+        facebook_publisher = FacebookPublisher()
         
-        result = await facebook_service.publish_post(
+        result = await facebook_publisher.publish_post(
             access_token=credentials["access_token"],
             content=request.content,
             media_urls=request.media_urls,
@@ -295,11 +295,11 @@ async def facebook_schedule_post(
                 detail="Facebook credentials not found"
             )
         
-        # Import and use Facebook service
-        from app.services.platforms.facebook_service import FacebookService
-        facebook_service = FacebookService()
+        # Import and use Facebook publisher
+        from app.infrastructure.external.platforms.facebook import FacebookPublisher
+        facebook_publisher = FacebookPublisher()
         
-        result = await facebook_service.schedule_post(
+        result = await facebook_publisher.schedule_post(
             access_token=credentials["access_token"],
             content=request.content,
             scheduled_time=request.scheduled_time,
@@ -340,11 +340,11 @@ async def facebook_upload_media(
                 detail="Facebook credentials not found"
             )
         
-        # Import and use Facebook service
-        from app.services.platforms.facebook_service import FacebookService
-        facebook_service = FacebookService()
+        # Import and use Facebook publisher
+        from app.infrastructure.external.platforms.facebook import FacebookPublisher
+        facebook_publisher = FacebookPublisher()
         
-        result = await facebook_service.upload_media(
+        result = await facebook_publisher.upload_media(
             access_token=credentials["access_token"],
             media_url=media_url
         )
@@ -382,11 +382,11 @@ async def facebook_post_metrics(
                 detail="Facebook credentials not found"
             )
         
-        # Import and use Facebook service
-        from app.services.platforms.facebook_service import FacebookService
-        facebook_service = FacebookService()
+        # Import and use Facebook publisher
+        from app.infrastructure.external.platforms.facebook import FacebookPublisher
+        facebook_publisher = FacebookPublisher()
         
-        result = await facebook_service.get_post_metrics(
+        result = await facebook_publisher.get_post_metrics(
             access_token=credentials["access_token"],
             post_id=post_id
         )
@@ -418,11 +418,11 @@ async def facebook_verify_credentials(
         if not credentials:
             return {"valid": False, "error": "No credentials found"}
         
-        # Import and use Facebook service
-        from app.services.platforms.facebook_service import FacebookService
-        facebook_service = FacebookService()
+        # Import and use Facebook publisher
+        from app.infrastructure.external.platforms.facebook import FacebookPublisher
+        facebook_publisher = FacebookPublisher()
         
-        result = await facebook_service.verify_credentials(
+        result = await facebook_publisher.verify_credentials(
             access_token=credentials["access_token"]
         )
         
@@ -473,11 +473,11 @@ async def instagram_post(
                 detail="Instagram credentials not found"
             )
         
-        # Import and use Instagram service
-        from app.services.platforms.instagram_service import InstagramService
-        instagram_service = InstagramService()
+        # Import and use Instagram publisher
+        from app.infrastructure.external.platforms.instagram import InstagramPublisher
+        instagram_publisher = InstagramPublisher()
         
-        result = await instagram_service.publish_post(
+        result = await instagram_publisher.publish_post(
             access_token=credentials["access_token"],
             content=request.content,
             media_urls=request.media_urls,
@@ -517,11 +517,11 @@ async def instagram_schedule_post(
                 detail="Instagram credentials not found"
             )
         
-        # Import and use Instagram service
-        from app.services.platforms.instagram_service import InstagramService
-        instagram_service = InstagramService()
+        # Import and use Instagram publisher
+        from app.infrastructure.external.platforms.instagram import InstagramPublisher
+        instagram_publisher = InstagramPublisher()
         
-        result = await instagram_service.schedule_post(
+        result = await instagram_publisher.schedule_post(
             access_token=credentials["access_token"],
             content=request.content,
             scheduled_time=request.scheduled_time,
@@ -563,11 +563,11 @@ async def instagram_upload_media(
                 detail="Instagram credentials not found"
             )
         
-        # Import and use Instagram service
-        from app.services.platforms.instagram_service import InstagramService
-        instagram_service = InstagramService()
+        # Import and use Instagram publisher
+        from app.infrastructure.external.platforms.instagram import InstagramPublisher
+        instagram_publisher = InstagramPublisher()
         
-        result = await instagram_service.upload_media(
+        result = await instagram_publisher.upload_media(
             access_token=credentials["access_token"],
             media_url=media_url,
             instagram_account_id=instagram_account_id
@@ -606,11 +606,11 @@ async def instagram_post_metrics(
                 detail="Instagram credentials not found"
             )
         
-        # Import and use Instagram service
-        from app.services.platforms.instagram_service import InstagramService
-        instagram_service = InstagramService()
+        # Import and use Instagram publisher
+        from app.infrastructure.external.platforms.instagram import InstagramPublisher
+        instagram_publisher = InstagramPublisher()
         
-        result = await instagram_service.get_post_metrics(
+        result = await instagram_publisher.get_post_metrics(
             access_token=credentials["access_token"],
             post_id=post_id
         )
@@ -642,11 +642,11 @@ async def instagram_verify_credentials(
         if not credentials:
             return {"valid": False, "error": "No credentials found"}
         
-        # Import and use Instagram service
-        from app.services.platforms.instagram_service import InstagramService
-        instagram_service = InstagramService()
+        # Import and use Instagram publisher
+        from app.infrastructure.external.platforms.instagram import InstagramPublisher
+        instagram_publisher = InstagramPublisher()
         
-        result = await instagram_service.verify_credentials(
+        result = await instagram_publisher.verify_credentials(
             access_token=credentials["access_token"]
         )
         
@@ -697,11 +697,11 @@ async def linkedin_post(
                 detail="LinkedIn credentials not found"
             )
         
-        # Import and use LinkedIn service
-        from app.services.platforms.linkedin_service import LinkedInService
-        linkedin_service = LinkedInService()
+        # Import and use LinkedIn publisher
+        from app.infrastructure.external.platforms.linkedin import LinkedInPublisher
+        linkedin_publisher = LinkedInPublisher()
         
-        result = await linkedin_service.publish_post(
+        result = await linkedin_publisher.publish_post(
             access_token=credentials["access_token"],
             content=request.content,
             media_urls=request.media_urls,
@@ -741,11 +741,11 @@ async def linkedin_schedule_post(
                 detail="LinkedIn credentials not found"
             )
         
-        # Import and use LinkedIn service
-        from app.services.platforms.linkedin_service import LinkedInService
-        linkedin_service = LinkedInService()
+        # Import and use LinkedIn publisher
+        from app.infrastructure.external.platforms.linkedin import LinkedInPublisher
+        linkedin_publisher = LinkedInPublisher()
         
-        result = await linkedin_service.schedule_post(
+        result = await linkedin_publisher.schedule_post(
             access_token=credentials["access_token"],
             content=request.content,
             scheduled_time=request.scheduled_time,
@@ -787,11 +787,11 @@ async def linkedin_upload_media(
                 detail="LinkedIn credentials not found"
             )
         
-        # Import and use LinkedIn service
-        from app.services.platforms.linkedin_service import LinkedInService
-        linkedin_service = LinkedInService()
+        # Import and use LinkedIn publisher
+        from app.infrastructure.external.platforms.linkedin import LinkedInPublisher
+        linkedin_publisher = LinkedInPublisher()
         
-        result = await linkedin_service.upload_media(
+        result = await linkedin_publisher.upload_media(
             access_token=credentials["access_token"],
             media_url=media_url,
             person_urn=person_urn or f"urn:li:person:{credentials['user_id']}"
@@ -830,11 +830,11 @@ async def linkedin_post_metrics(
                 detail="LinkedIn credentials not found"
             )
         
-        # Import and use LinkedIn service
-        from app.services.platforms.linkedin_service import LinkedInService
-        linkedin_service = LinkedInService()
+        # Import and use LinkedIn publisher
+        from app.infrastructure.external.platforms.linkedin import LinkedInPublisher
+        linkedin_publisher = LinkedInPublisher()
         
-        result = await linkedin_service.get_post_metrics(
+        result = await linkedin_publisher.get_post_metrics(
             access_token=credentials["access_token"],
             post_id=post_id
         )
@@ -866,11 +866,11 @@ async def linkedin_verify_credentials(
         if not credentials:
             return {"valid": False, "error": "No credentials found"}
         
-        # Import and use LinkedIn service
-        from app.services.platforms.linkedin_service import LinkedInService
-        linkedin_service = LinkedInService()
+        # Import and use LinkedIn publisher
+        from app.infrastructure.external.platforms.linkedin import LinkedInPublisher
+        linkedin_publisher = LinkedInPublisher()
         
-        result = await linkedin_service.verify_credentials(
+        result = await linkedin_publisher.verify_credentials(
             access_token=credentials["access_token"]
         )
         
@@ -923,11 +923,11 @@ async def tiktok_post(
                 detail="TikTok credentials not found"
             )
         
-        # Import and use TikTok service
-        from app.services.platforms.tiktok_service import TikTokService
-        tiktok_service = TikTokService()
+        # Import and use TikTok publisher
+        from app.infrastructure.external.platforms.tiktok import TikTokPublisher
+        tiktok_publisher = TikTokPublisher()
         
-        result = await tiktok_service.publish_post(
+        result = await tiktok_publisher.publish_post(
             access_token=credentials["access_token"],
             content=request.content,
             media_urls=request.media_urls,
@@ -970,11 +970,11 @@ async def tiktok_schedule_post(
                 detail="TikTok credentials not found"
             )
         
-        # Import and use TikTok service
-        from app.services.platforms.tiktok_service import TikTokService
-        tiktok_service = TikTokService()
+        # Import and use TikTok publisher
+        from app.infrastructure.external.platforms.tiktok import TikTokPublisher
+        tiktok_publisher = TikTokPublisher()
         
-        result = await tiktok_service.schedule_post(
+        result = await tiktok_publisher.schedule_post(
             access_token=credentials["access_token"],
             content=request.content,
             scheduled_time=request.scheduled_time,
@@ -1014,11 +1014,11 @@ async def tiktok_upload_media(
                 detail="TikTok credentials not found"
             )
         
-        # Import and use TikTok service
-        from app.services.platforms.tiktok_service import TikTokService
-        tiktok_service = TikTokService()
+        # Import and use TikTok publisher
+        from app.infrastructure.external.platforms.tiktok import TikTokPublisher
+        tiktok_publisher = TikTokPublisher()
         
-        result = await tiktok_service.upload_media(
+        result = await tiktok_publisher.upload_media(
             access_token=credentials["access_token"],
             media_url=media_url
         )
@@ -1056,11 +1056,11 @@ async def tiktok_post_metrics(
                 detail="TikTok credentials not found"
             )
         
-        # Import and use TikTok service
-        from app.services.platforms.tiktok_service import TikTokService
-        tiktok_service = TikTokService()
+        # Import and use TikTok publisher
+        from app.infrastructure.external.platforms.tiktok import TikTokPublisher
+        tiktok_publisher = TikTokPublisher()
         
-        result = await tiktok_service.get_post_metrics(
+        result = await tiktok_publisher.get_post_metrics(
             access_token=credentials["access_token"],
             post_id=post_id
         )
@@ -1092,11 +1092,11 @@ async def tiktok_verify_credentials(
         if not credentials:
             return {"valid": False, "error": "No credentials found"}
         
-        # Import and use TikTok service
-        from app.services.platforms.tiktok_service import TikTokService
-        tiktok_service = TikTokService()
+        # Import and use TikTok publisher
+        from app.infrastructure.external.platforms.tiktok import TikTokPublisher
+        tiktok_publisher = TikTokPublisher()
         
-        result = await tiktok_service.verify_credentials(
+        result = await tiktok_publisher.verify_credentials(
             access_token=credentials["access_token"]
         )
         
@@ -1146,11 +1146,11 @@ async def twitter_post(
                 detail="Twitter credentials not found"
             )
         
-        # Import and use Twitter service
-        from app.services.platforms.twitter_service import TwitterService
-        twitter_service = TwitterService()
+        # Import and use Twitter publisher
+        from app.infrastructure.external.platforms.twitter import TwitterPublisher
+        twitter_publisher = TwitterPublisher()
         
-        result = await twitter_service.publish_post(
+        result = await twitter_publisher.publish_post(
             access_token=credentials["access_token"],
             content=request.content,
             media_urls=request.media_urls,
@@ -1190,11 +1190,11 @@ async def twitter_schedule_post(
                 detail="Twitter credentials not found"
             )
         
-        # Import and use Twitter service
-        from app.services.platforms.twitter_service import TwitterService
-        twitter_service = TwitterService()
+        # Import and use Twitter publisher
+        from app.infrastructure.external.platforms.twitter import TwitterPublisher
+        twitter_publisher = TwitterPublisher()
         
-        result = await twitter_service.schedule_post(
+        result = await twitter_publisher.schedule_post(
             access_token=credentials["access_token"],
             content=request.content,
             scheduled_time=request.scheduled_time,
@@ -1234,11 +1234,11 @@ async def twitter_upload_media(
                 detail="Twitter credentials not found"
             )
         
-        # Import and use Twitter service
-        from app.services.platforms.twitter_service import TwitterService
-        twitter_service = TwitterService()
+        # Import and use Twitter publisher
+        from app.infrastructure.external.platforms.twitter import TwitterPublisher
+        twitter_publisher = TwitterPublisher()
         
-        result = await twitter_service.upload_media(
+        result = await twitter_publisher.upload_media(
             access_token=credentials["access_token"],
             media_url=media_url
         )
@@ -1276,11 +1276,11 @@ async def twitter_post_metrics(
                 detail="Twitter credentials not found"
             )
         
-        # Import and use Twitter service
-        from app.services.platforms.twitter_service import TwitterService
-        twitter_service = TwitterService()
+        # Import and use Twitter publisher
+        from app.infrastructure.external.platforms.twitter import TwitterPublisher
+        twitter_publisher = TwitterPublisher()
         
-        result = await twitter_service.get_post_metrics(
+        result = await twitter_publisher.get_post_metrics(
             access_token=credentials["access_token"],
             post_id=post_id
         )
@@ -1312,11 +1312,11 @@ async def twitter_verify_credentials(
         if not credentials:
             return {"valid": False, "error": "No credentials found"}
         
-        # Import and use Twitter service
-        from app.services.platforms.twitter_service import TwitterService
-        twitter_service = TwitterService()
+        # Import and use Twitter publisher
+        from app.infrastructure.external.platforms.twitter import TwitterPublisher
+        twitter_publisher = TwitterPublisher()
         
-        result = await twitter_service.verify_credentials(
+        result = await twitter_publisher.verify_credentials(
             access_token=credentials["access_token"]
         )
         
@@ -1373,11 +1373,11 @@ async def youtube_post(
                 detail="YouTube credentials not found"
             )
         
-        # Import and use YouTube service
-        from app.services.platforms.youtube_service import YouTubeService
-        youtube_service = YouTubeService()
+        # Import and use YouTube publisher
+        from app.infrastructure.external.platforms.youtube import YouTubePublisher
+        youtube_publisher = YouTubePublisher()
         
-        result = await youtube_service.publish_post(
+        result = await youtube_publisher.publish_post(
             access_token=credentials["access_token"],
             content=request.content,
             media_urls=request.media_urls,
@@ -1421,11 +1421,11 @@ async def youtube_schedule_post(
                 detail="YouTube credentials not found"
             )
         
-        # Import and use YouTube service
-        from app.services.platforms.youtube_service import YouTubeService
-        youtube_service = YouTubeService()
+        # Import and use YouTube publisher
+        from app.infrastructure.external.platforms.youtube import YouTubePublisher
+        youtube_publisher = YouTubePublisher()
         
-        result = await youtube_service.schedule_post(
+        result = await youtube_publisher.schedule_post(
             access_token=credentials["access_token"],
             content=request.content,
             scheduled_time=request.scheduled_time,
@@ -1468,11 +1468,11 @@ async def youtube_upload_media(
                 detail="YouTube credentials not found"
             )
         
-        # Import and use YouTube service
-        from app.services.platforms.youtube_service import YouTubeService
-        youtube_service = YouTubeService()
+        # Import and use YouTube publisher
+        from app.infrastructure.external.platforms.youtube import YouTubePublisher
+        youtube_publisher = YouTubePublisher()
         
-        result = await youtube_service.upload_media(
+        result = await youtube_publisher.upload_media(
             access_token=credentials["access_token"],
             media_url=media_url,
             title=title,
@@ -1512,11 +1512,11 @@ async def youtube_post_metrics(
                 detail="YouTube credentials not found"
             )
         
-        # Import and use YouTube service
-        from app.services.platforms.youtube_service import YouTubeService
-        youtube_service = YouTubeService()
+        # Import and use YouTube publisher
+        from app.infrastructure.external.platforms.youtube import YouTubePublisher
+        youtube_publisher = YouTubePublisher()
         
-        result = await youtube_service.get_post_metrics(
+        result = await youtube_publisher.get_post_metrics(
             access_token=credentials["access_token"],
             post_id=post_id
         )
@@ -1548,11 +1548,11 @@ async def youtube_verify_credentials(
         if not credentials:
             return {"valid": False, "error": "No credentials found"}
         
-        # Import and use YouTube service
-        from app.services.platforms.youtube_service import YouTubeService
-        youtube_service = YouTubeService()
+        # Import and use YouTube publisher
+        from app.infrastructure.external.platforms.youtube import YouTubePublisher
+        youtube_publisher = YouTubePublisher()
         
-        result = await youtube_service.verify_credentials(
+        result = await youtube_publisher.verify_credentials(
             access_token=credentials["access_token"]
         )
         

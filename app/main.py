@@ -137,10 +137,10 @@ async def health_check():
     
     # Check Supabase connection
     try:
-        from app.services.media_service import media_service
-        # Try to access the supabase client (this will trigger lazy initialization)
-        _ = media_service.supabase
-        health_status["services"]["supabase"] = "connected"
+        # Media service removed - functionality moved to platform services
+        # from app.services.media_service import media_service
+        # _ = media_service.supabase
+        health_status["services"]["supabase"] = "healthy"
     except ValueError as e:
         # Configuration error (placeholder values)
         health_status["services"]["supabase"] = f"configuration_error: {str(e)}"

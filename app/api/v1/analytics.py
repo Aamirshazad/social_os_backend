@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_workspace_id
-from app.services.analytics_service import AnalyticsService
+from app.application.services.analytics import MetricsService
 import structlog
 
 logger = structlog.get_logger()
@@ -27,7 +27,7 @@ async def get_analytics_overview(
     
     Returns post counts, platform distribution, and trends
     """
-    overview = AnalyticsService.get_overview(
+    overview = MetricsService.get_overview(
         db=db,
         workspace_id=workspace_id,
         days=days
@@ -54,7 +54,7 @@ async def get_post_performance(
     - limit: Number of posts to return
     - platform: Filter by platform
     """
-    performance = AnalyticsService.get_top_posts(
+    performance = MetricsService.get_top_performing_posts(
         db=db,
         workspace_id=workspace_id,
         limit=limit,
@@ -77,7 +77,7 @@ async def get_platform_distribution(
     """
     Get post distribution across platforms
     """
-    distribution = AnalyticsService.get_platform_distribution(
+    distribution = MetricsService.get_platform_performance(
         db=db,
         workspace_id=workspace_id,
         days=days
@@ -101,7 +101,7 @@ async def get_activity_timeline(
     
     Returns daily post counts for the specified period
     """
-    timeline = AnalyticsService.get_activity_timeline(
+    timeline = MetricsService.get_overview(
         db=db,
         workspace_id=workspace_id,
         days=days
@@ -122,7 +122,7 @@ async def get_campaign_performance(
     """
     Get performance metrics for all campaigns
     """
-    performance = AnalyticsService.get_campaign_performance(
+    performance = MetricsService.get_overview(
         db=db,
         workspace_id=workspace_id
     )

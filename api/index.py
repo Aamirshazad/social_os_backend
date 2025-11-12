@@ -1,26 +1,19 @@
 """
-Minimal Vercel Test
+Minimal FastAPI for Vercel with proper ASGI setup
 """
 from fastapi import FastAPI
+from mangum import Mangum
 
-# Create a minimal FastAPI app for testing
-app = FastAPI(title="Vercel Test API")
+# Create minimal FastAPI app
+app = FastAPI()
 
 @app.get("/")
-async def root():
-    return {
-        "message": "Hello from Vercel!", 
-        "status": "working",
-        "framework": "FastAPI"
-    }
+def read_root():
+    return {"message": "Hello from Vercel!", "status": "working"}
 
 @app.get("/health")
-async def health():
-    return {"status": "healthy", "service": "vercel-test"}
+def health():
+    return {"status": "healthy"}
 
-@app.get("/test")
-async def test():
-    return {"test": "endpoint working"}
-
-# Export for Vercel
-handler = app
+# Wrap FastAPI app with Mangum for serverless
+handler = Mangum(app)

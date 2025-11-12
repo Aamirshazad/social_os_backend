@@ -3,14 +3,14 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "index.py"
+      "dest": "/api/index"
     }
   ],
   "env": {
     "PYTHONPATH": "."
   },
   "functions": {
-    "index.py": {
+    "api/index.py": {
       "maxDuration": 30
     }
   }

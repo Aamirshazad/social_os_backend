@@ -1,19 +1,36 @@
 """
-Minimal FastAPI for Vercel with proper ASGI setup
+Ultra-simple Python handler for Vercel debugging
 """
-from fastapi import FastAPI
-from mangum import Mangum
+from http.server import BaseHTTPRequestHandler
+import json
 
-# Create minimal FastAPI app
-app = FastAPI()
-
-@app.get("/")
-def read_root():
-    return {"message": "Hello from Vercel!", "status": "working"}
-
-@app.get("/health")
-def health():
-    return {"status": "healthy"}
-
-# Wrap FastAPI app with Mangum for serverless
-handler = Mangum(app)
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        
+        response = {
+            "message": "Hello from Vercel!",
+            "status": "working",
+            "path": self.path,
+            "method": "GET"
+        }
+        
+        self.wfile.write(json.dumps(response).encode())
+        return
+    
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        
+        response = {
+            "message": "POST received",
+            "status": "working",
+            "path": self.path,
+            "method": "POST"
+        }
+        
+        self.wfile.write(json.dumps(response).encode())
+        return

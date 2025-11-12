@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3000", 
+        "https://localhost:3000",
+        "https://social-ms.vercel.app"
+    ]
     
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v):
@@ -79,8 +83,8 @@ class Settings(BaseSettings):
     YOUTUBE_CLIENT_SECRET: Optional[str] = None
     
     # Application URLs
-    FRONTEND_URL: str = "http://localhost:3000"
-    CALLBACK_URL: str = "http://localhost:8000/api/v1/oauth"
+    FRONTEND_URL: str = Field(default="http://localhost:3000", env="FRONTEND_URL")
+    CALLBACK_URL: str = Field(default="http://localhost:8000/api/v1/oauth", env="CALLBACK_URL")
     
     # Email Configuration
     RESEND_API_KEY: Optional[str] = None

@@ -2,7 +2,7 @@
 Google Gemini AI Service
 """
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
+from google import genai
 import structlog
 import json
 import re

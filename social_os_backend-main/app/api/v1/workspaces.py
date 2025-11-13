@@ -18,7 +18,7 @@ router = APIRouter()
 @router.get("", response_model=List[WorkspaceResponse])
 async def get_workspaces(
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all workspaces for the current user
@@ -35,7 +35,7 @@ async def get_workspaces(
 async def get_workspace(
     workspace_id: str,
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a specific workspace by ID

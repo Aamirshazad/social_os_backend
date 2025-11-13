@@ -26,7 +26,7 @@ async def get_posts(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     workspace_id: str = Depends(get_workspace_id),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all posts for the current workspace
@@ -52,7 +52,7 @@ async def create_post(
     post_data: PostCreate,
     current_user: dict = Depends(get_current_active_user),
     workspace_id: str = Depends(get_workspace_id),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Create a new post
@@ -71,7 +71,7 @@ async def create_post(
 async def get_post(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a specific post by ID
@@ -90,7 +90,7 @@ async def update_post(
     post_id: str,
     post_data: PostUpdate,
     workspace_id: str = Depends(get_workspace_id),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: dict = Depends(get_current_active_user)
 ):
     """
@@ -110,7 +110,7 @@ async def update_post(
 async def delete_post(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: dict = Depends(get_current_active_user)
 ):
     """
@@ -130,7 +130,7 @@ async def update_post_status(
     post_id: str,
     status: PostStatus,
     workspace_id: str = Depends(get_workspace_id),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: dict = Depends(get_current_active_user)
 ):
     """
@@ -149,7 +149,7 @@ async def update_post_status(
 @router.get("/scheduled/pending", response_model=List[PostResponse])
 async def get_scheduled_posts(
     workspace_id: str = Depends(get_workspace_id),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: dict = Depends(get_current_active_user)
 ):
     """

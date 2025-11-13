@@ -42,7 +42,7 @@ async def get_invites(
     include_expired: bool = Query(False),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(require_role("admin")),  # ✅ REQUIRE ADMIN ROLE
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all pending invites for workspace
@@ -92,7 +92,7 @@ async def create_invite(
     request: CreateInviteRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(require_role("admin")),  # ✅ REQUIRE ADMIN ROLE
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Create a new workspace invitation
@@ -140,7 +140,7 @@ async def create_invite(
 async def accept_invite(
     token: str,
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Accept a workspace invitation
@@ -174,7 +174,7 @@ async def revoke_invite(
     invite_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Revoke (delete) an invitation

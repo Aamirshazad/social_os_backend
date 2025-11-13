@@ -28,7 +28,7 @@ class SchedulePostRequest(BaseModel):
 async def get_pending_scheduled_posts(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all pending scheduled posts
@@ -55,7 +55,7 @@ async def schedule_post(
     background_tasks: BackgroundTasks,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Schedule a post for future publishing
@@ -106,7 +106,7 @@ async def cancel_scheduled_post(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Cancel a scheduled post
@@ -135,7 +135,7 @@ async def cancel_scheduled_post(
 async def get_queue_status(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get scheduler queue status

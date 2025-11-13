@@ -45,7 +45,7 @@ async def publish_to_platform(
     request: PublishRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Publish content to a single platform
@@ -88,7 +88,7 @@ async def publish_to_multiple_platforms(
     request: MultiPlatformPublishRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Publish content to multiple platforms concurrently
@@ -131,7 +131,7 @@ async def verify_platform_credentials(
     platform: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Verify credentials for a platform
@@ -155,7 +155,7 @@ async def verify_platform_credentials(
 async def get_credentials_status(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get status of all platform credentials
@@ -181,7 +181,7 @@ async def disconnect_platform(
     platform: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Disconnect a platform by deleting its credentials
@@ -233,7 +233,7 @@ async def facebook_post(
     request: FacebookPostRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Post content to Facebook
@@ -277,7 +277,7 @@ async def facebook_schedule_post(
     request: FacebookScheduleRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Schedule a Facebook post
@@ -322,7 +322,7 @@ async def facebook_upload_media(
     media_url: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload media to Facebook
@@ -364,7 +364,7 @@ async def facebook_post_metrics(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get Facebook post analytics
@@ -403,7 +403,7 @@ async def facebook_post_metrics(
 async def facebook_verify_credentials(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Verify Facebook credentials
@@ -455,7 +455,7 @@ async def instagram_post(
     request: InstagramPostRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Post content to Instagram
@@ -499,7 +499,7 @@ async def instagram_schedule_post(
     request: InstagramScheduleRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Schedule an Instagram post
@@ -545,7 +545,7 @@ async def instagram_upload_media(
     instagram_account_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload media to Instagram
@@ -588,7 +588,7 @@ async def instagram_post_metrics(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get Instagram post analytics
@@ -627,7 +627,7 @@ async def instagram_post_metrics(
 async def instagram_verify_credentials(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Verify Instagram credentials
@@ -679,7 +679,7 @@ async def linkedin_post(
     request: LinkedInPostRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Post content to LinkedIn
@@ -723,7 +723,7 @@ async def linkedin_schedule_post(
     request: LinkedInScheduleRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Schedule a LinkedIn post (creates as draft)
@@ -769,7 +769,7 @@ async def linkedin_upload_media(
     person_urn: str = None,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload media to LinkedIn
@@ -812,7 +812,7 @@ async def linkedin_post_metrics(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get LinkedIn post analytics
@@ -851,7 +851,7 @@ async def linkedin_post_metrics(
 async def linkedin_verify_credentials(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Verify LinkedIn credentials
@@ -905,7 +905,7 @@ async def tiktok_post(
     request: TikTokPostRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Post content to TikTok
@@ -952,7 +952,7 @@ async def tiktok_schedule_post(
     request: TikTokScheduleRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Schedule a TikTok post (not supported by TikTok API)
@@ -996,7 +996,7 @@ async def tiktok_upload_media(
     media_url: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload media to TikTok
@@ -1038,7 +1038,7 @@ async def tiktok_post_metrics(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get TikTok post analytics
@@ -1077,7 +1077,7 @@ async def tiktok_post_metrics(
 async def tiktok_verify_credentials(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Verify TikTok credentials
@@ -1128,7 +1128,7 @@ async def twitter_post(
     request: TwitterPostRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Post content to Twitter
@@ -1172,7 +1172,7 @@ async def twitter_schedule_post(
     request: TwitterScheduleRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Schedule a Twitter post (not supported by Twitter API)
@@ -1216,7 +1216,7 @@ async def twitter_upload_media(
     media_url: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload media to Twitter
@@ -1258,7 +1258,7 @@ async def twitter_post_metrics(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get Twitter post analytics
@@ -1297,7 +1297,7 @@ async def twitter_post_metrics(
 async def twitter_verify_credentials(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Verify Twitter credentials
@@ -1355,7 +1355,7 @@ async def youtube_post(
     request: YouTubePostRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Post content to YouTube
@@ -1403,7 +1403,7 @@ async def youtube_schedule_post(
     request: YouTubeScheduleRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Schedule a YouTube video
@@ -1450,7 +1450,7 @@ async def youtube_upload_media(
     description: str = "",
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload media to YouTube
@@ -1494,7 +1494,7 @@ async def youtube_post_metrics(
     post_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get YouTube video analytics
@@ -1533,7 +1533,7 @@ async def youtube_post_metrics(
 async def youtube_verify_credentials(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Verify YouTube credentials

@@ -55,7 +55,7 @@ async def twitter_authorize(
 async def twitter_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Twitter OAuth callback
@@ -135,7 +135,7 @@ async def linkedin_authorize(
 async def linkedin_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """LinkedIn OAuth callback"""
     try:
@@ -201,7 +201,7 @@ async def facebook_authorize(
 async def facebook_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Facebook OAuth callback"""
     try:
@@ -267,7 +267,7 @@ async def youtube_authorize(
 async def youtube_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """YouTube OAuth callback"""
     try:
@@ -345,7 +345,7 @@ async def facebook_authorize(
 async def facebook_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Handle Facebook OAuth callback
@@ -442,7 +442,7 @@ async def instagram_authorize(
 async def instagram_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Handle Instagram OAuth callback
@@ -549,7 +549,7 @@ async def linkedin_authorize(
 async def linkedin_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Handle LinkedIn OAuth callback
@@ -645,7 +645,7 @@ async def tiktok_authorize(
 async def tiktok_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Handle TikTok OAuth callback
@@ -743,7 +743,7 @@ async def twitter_authorize(
 async def twitter_callback(
     code: str = Query(...),
     state: str = Query(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Handle Twitter OAuth callback

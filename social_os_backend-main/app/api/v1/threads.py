@@ -30,7 +30,7 @@ async def get_threads(
     include_deleted: bool = Query(False),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all threads for workspace
@@ -51,7 +51,7 @@ async def create_thread(
     request: CreateThreadRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Create a new thread
@@ -73,7 +73,7 @@ async def get_thread(
     thread_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get thread by ID
@@ -100,7 +100,7 @@ async def update_thread_title(
     request: UpdateThreadTitleRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Update thread title
@@ -131,7 +131,7 @@ async def add_message(
     request: AddMessageRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Add a message to thread
@@ -167,7 +167,7 @@ async def update_messages(
     request: UpdateMessagesRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Update all messages in thread
@@ -199,7 +199,7 @@ async def delete_thread(
     thread_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Delete (soft delete) a thread
@@ -228,7 +228,7 @@ async def restore_thread(
     thread_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Restore a deleted thread
@@ -257,7 +257,7 @@ async def get_recent_threads(
     limit: int = Query(10, ge=1, le=50),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get recent threads for workspace

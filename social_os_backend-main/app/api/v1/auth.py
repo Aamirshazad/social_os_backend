@@ -105,12 +105,12 @@ async def register(
             workspace_member = WorkspaceMember(
                 workspace_id=workspace_id,
                 user_id=str(user.id),
-                role=MemberRole.ADMIN  # ✅ NEW USERS ARE ADMINS
+                role=MemberRole.ADMIN  # NEW USERS ARE ADMINS
             )
             db.add(workspace_member)
             await db.commit()
         
-        role = "admin"  # ✅ NEW USERS ARE ADMINS
+        role = "admin"  # NEW USERS ARE ADMINS
         
         # Create tokens with role
         tokens = TokenService.create_tokens(user, workspace_id, role)

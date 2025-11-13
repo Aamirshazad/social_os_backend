@@ -51,7 +51,7 @@ async def get_library_posts(
     platform: Optional[str] = None,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all archived posts from library
@@ -77,7 +77,7 @@ async def archive_post_to_library(
     request: ArchivePostRequest,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Archive a published post to library
@@ -110,7 +110,7 @@ async def get_library_item(
     library_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a specific library item by ID
@@ -129,7 +129,7 @@ async def delete_library_item(
     library_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Delete a library item
@@ -149,7 +149,7 @@ async def delete_library_item(
 async def get_library_stats(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get library statistics summary

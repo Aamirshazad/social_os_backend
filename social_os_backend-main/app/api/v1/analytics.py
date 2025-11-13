@@ -20,7 +20,7 @@ async def get_analytics_overview(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get analytics overview for workspace
@@ -45,7 +45,7 @@ async def get_post_performance(
     platform: Optional[str] = None,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get top performing posts
@@ -72,7 +72,7 @@ async def get_platform_distribution(
     days: int = Query(30, ge=1, le=365),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get post distribution across platforms
@@ -94,7 +94,7 @@ async def get_activity_timeline(
     days: int = Query(30, ge=1, le=365),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get posting activity timeline
@@ -117,7 +117,7 @@ async def get_activity_timeline(
 async def get_campaign_performance(
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get performance metrics for all campaigns

@@ -32,23 +32,28 @@ class Settings(BaseSettings):
     def _parse_cors_origins(self):
         """Parse CORS origins from environment or default string"""
         import os
-        # Check environment variable first
-        env_value = os.getenv('BACKEND_CORS_ORIGINS')
+        # Check environment variable first (using a different name to avoid conflicts)
+        env_value = os.getenv('CORS_ALLOWED_ORIGINS') or os.getenv('BACKEND_CORS_ORIGINS')
         if env_value:
             cors_string = env_value
         else:
             cors_string = self.CORS_ORIGINS_STRING
             
-        # Parse the string into a list
+        # Parse the string into a list and store in __dict__ to bypass Pydantic restrictions
         if isinstance(cors_string, str) and cors_string.strip():
-            self._backend_cors_origins = [i.strip() for i in cors_string.split(",") if i.strip()]
+            self.__dict__['_cors_origins_list'] = [i.strip() for i in cors_string.split(",") if i.strip()]
         else:
-            self._backend_cors_origins = ["http://localhost:3000"]
+            self.__dict__['_cors_origins_list'] = ["https://social-os-frontend.vercel.app"]
     
-    @property
-    def BACKEND_CORS_ORIGINS(self) -> List[str]:
+    def get_cors_origins(self) -> List[str]:
         """Get parsed CORS origins"""
-        return getattr(self, '_backend_cors_origins', ["http://localhost:3000"])
+        return self.__dict__.get('_cors_origins_list', ["https://social-os-frontend.vercel.app"])
+    
+    # Compatibility property with a different name to avoid Pydantic conflicts
+    @property
+    def allowed_origins(self) -> List[str]:
+        """Get CORS allowed origins (compatibility property)"""
+        return self.get_cors_origins()
     
     # Database
     DATABASE_URL: str = Field(default="postgresql://user:pass@localhost:5432/dbname")

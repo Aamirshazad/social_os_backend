@@ -46,6 +46,7 @@ app = FastAPI(
 # Add CORS middleware - Enhanced configuration for production
 cors_origins = [
     "https://social-os-frontend.vercel.app",
+    "https://social-os-frontend.vercel.app/",  # Handle trailing slash
     "http://localhost:3000",
     "https://localhost:3000"
 ]

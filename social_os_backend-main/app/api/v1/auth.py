@@ -158,19 +158,31 @@ async def login(
     try:
         # Validate request security
         security_info = validate_request_security(request)
+        logger.info("login_attempt", email=login_data.email, **security_info)
         
         # Authenticate user using Supabase
         user = await AuthenticationService.authenticate_user(
             email=login_data.email,
             password=login_data.password
         )
+        logger.info("supabase_auth_success", user_id=str(user.id), email=login_data.email)
         
         # Get user record from database to get workspace and role
         from app.models.user import User
-        user_result = await db.execute(
-            select(User).where(User.id == str(user.id))
-        )
-        db_user = user_result.scalar_one_or_none()
+        logger.info("attempting_user_lookup", user_id=str(user.id), email=user.email)
+        
+        try:
+            user_result = await db.execute(
+                select(User).where(User.id == str(user.id))
+            )
+            db_user = user_result.scalar_one_or_none()
+            logger.info("user_lookup_result", found=bool(db_user), user_id=str(user.id))
+        except Exception as db_error:
+            logger.error("database_query_failed", error=str(db_error), user_id=str(user.id))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database connection failed"
+            )
         
         if not db_user:
             logger.error("user_not_found_in_db", user_id=str(user.id), email=user.email)

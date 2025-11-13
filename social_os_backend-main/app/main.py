@@ -162,7 +162,9 @@ async def config_check():
         "supabase_service_key_configured": settings.SUPABASE_SERVICE_ROLE_KEY != "placeholder-service-key",
         "database_url_configured": settings.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname",
         "environment": settings.ENVIRONMENT,
-        "debug": settings.DEBUG
+        "debug": settings.DEBUG,
+        "cors_origins": settings.get_cors_origins(),
+        "frontend_url": settings.FRONTEND_URL
     }
     
     # Don't expose actual values, just whether they're configured

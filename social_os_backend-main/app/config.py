@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # CORS - Use a simple string field and parse it after initialization
-    CORS_ORIGINS_STRING: str = "https://social-os-frontend.vercel.app"
+    CORS_ORIGINS_STRING: str = "https://social-os-frontend.vercel.app,http://localhost:3000,https://localhost:3000"
     
     # Handle BACKEND_CORS_ORIGINS environment variable safely
     BACKEND_CORS_ORIGINS_RAW: Optional[str] = Field(default=None, alias="BACKEND_CORS_ORIGINS")
@@ -60,11 +60,11 @@ class Settings(BaseSettings):
                 # If JSON parsing fails, try comma-separated
                 self.__dict__['_cors_origins_list'] = [i.strip() for i in cors_string.split(",") if i.strip()]
         else:
-            self.__dict__['_cors_origins_list'] = ["https://social-os-frontend.vercel.app"]
+            self.__dict__['_cors_origins_list'] = ["https://social-os-frontend.vercel.app", "http://localhost:3000", "https://localhost:3000"]
     
     def get_cors_origins(self) -> List[str]:
         """Get parsed CORS origins"""
-        return self.__dict__.get('_cors_origins_list', ["https://social-os-frontend.vercel.app"])
+        return self.__dict__.get('_cors_origins_list', ["https://social-os-frontend.vercel.app", "http://localhost:3000", "https://localhost:3000"])
     
     # Compatibility property with a different name to avoid Pydantic conflicts
     @property
@@ -178,9 +178,7 @@ class Settings(BaseSettings):
     
     model_config = {
         "env_file": ".env",
-        "case_sensitive": True,
-        # Exclude problematic list fields from automatic env parsing since we handle them manually
-        "env_ignore": {"ALLOWED_IMAGE_TYPES", "ALLOWED_VIDEO_TYPES", "BACKEND_CORS_ORIGINS"}
+        "case_sensitive": True
     }
 
 

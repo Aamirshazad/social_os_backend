@@ -3,7 +3,7 @@ services:
     name: social-media-ai-backend
     env: python
     plan: starter
-    buildCommand: ls -la && pwd && pip install --upgrade pip && pip install -r requirements.txt
+    buildCommand: pwd && ls -la && pip install --upgrade pip && pip install -r requirements.txt
     startCommand: gunicorn wsgi:app -c gunicorn.conf.py
     envVars:
       - key: PYTHON_VERSION

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 from app.database import get_async_db
-from app.dependencies import get_current_active_user, get_workspace_id
+from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 # TODO: CampaignService needs to be implemented in new structure
 # from app.services.campaign_service import CampaignService
 import structlog

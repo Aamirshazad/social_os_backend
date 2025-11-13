@@ -13,9 +13,7 @@ import structlog
 from app.database import get_async_db
 from app.models.post import Post
 from app.models.enums import PostStatus
-from app.core.middleware.auth import create_request_context
-from app.core.middleware.response_handler import success_response, error_response, validation_error_response
-from app.core.middleware.request_context import RequestContext
+from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -61,11 +59,11 @@ async def get_posts(
     Matches Next.js /api/posts GET handler exactly
     """
     try:
-        # Create request context (handles authentication)
-        context = await create_request_context(request, db)
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
         
         # Verify workspace access
-        if context.workspaceId != workspace_id:
+        if user_data["workspace_id"] != workspace_id:
             raise HTTPException(status_code=403, detail="Access denied to workspace")
         
         # Fetch posts
@@ -102,16 +100,14 @@ async def get_posts(
             }
             transformed_posts.append(post_data)
         
-        logger.info("posts_fetched", count=len(transformed_posts), workspace_id=workspace_id, request_id=context.requestId)
-        return success_response(transformed_posts)
+        logger.info("posts_fetched", count=len(transformed_posts), workspace_id=workspace_id, user_id=user_id)
+        return transformed_posts
         
     except HTTPException:
         raise
-    except ValidationError as e:
-        return validation_error_response(e, context.requestId if 'context' in locals() else None)
     except Exception as e:
         logger.error("get_posts_error", error=str(e), workspace_id=workspace_id)
-        return error_response(e, context.requestId if 'context' in locals() else None)
+        raise HTTPException(status_code=500, detail="Failed to fetch posts")
 
 
 @router.post("/posts")
@@ -125,11 +121,11 @@ async def create_post(
     Matches Next.js /api/posts POST handler exactly
     """
     try:
-        # Create request context (handles authentication)
-        context = await create_request_context(request, db)
+        # Verify authentication and require editor/admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         
         # Verify workspace access
-        if context.workspaceId != post_data.workspaceId:
+        if user_data["workspace_id"] != post_data.workspaceId:
             raise HTTPException(status_code=403, detail="Access denied to workspace")
         
         post = post_data.post
@@ -153,7 +149,7 @@ async def create_post(
         db_post = Post(
             id=post.get("id"),  # Use provided ID or let DB generate
             workspace_id=post_data.workspaceId,
-            created_by=context.userId,
+            created_by=user_id,
             topic=post.get("topic"),
             platforms=post.get("platforms", []),
             post_type=post.get("postType", "post"),
@@ -192,13 +188,11 @@ async def create_post(
             "updated_at": db_post.updated_at.isoformat()
         }
         
-        logger.info("post_created", post_id=str(db_post.id), workspace_id=post_data.workspaceId, request_id=context.requestId)
-        return success_response(response_data, 201)
+        logger.info("post_created", post_id=str(db_post.id), workspace_id=post_data.workspaceId, user_id=user_id)
+        return response_data
         
     except HTTPException:
         raise
-    except ValidationError as e:
-        return validation_error_response(e, context.requestId if 'context' in locals() else None)
     except Exception as e:
         logger.error("create_post_error", error=str(e), workspace_id=post_data.workspaceId if post_data else None)
-        return error_response(e, context.requestId if 'context' in locals() else None)
+        raise HTTPException(status_code=500, detail="Failed to create post")

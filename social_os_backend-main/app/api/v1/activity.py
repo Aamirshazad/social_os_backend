@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
 from app.database import get_async_db
-from app.dependencies import get_current_active_user, get_workspace_id
+from app.core.auth_helper import verify_auth_and_get_user
 # TODO: ActivityService needs to be implemented in new structure
 # from app.services.activity_service import ActivityService
 import structlog

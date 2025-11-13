@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 
 from app.database import get_async_db
-from app.dependencies import get_current_active_user, get_workspace_id
+from app.core.auth_helper import verify_auth_and_get_user
 from app.application.services.analytics import MetricsService
 import structlog
 

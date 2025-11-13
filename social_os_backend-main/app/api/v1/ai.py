@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, UploadFile, Form
 from typing import List
 from pydantic import BaseModel
 
-from app.dependencies import get_current_active_user
+from app.core.auth_helper import verify_auth_and_get_user
 from app.core.exceptions import ExternalAPIError
 from app.schemas.ai import (
     GenerateContentRequest,

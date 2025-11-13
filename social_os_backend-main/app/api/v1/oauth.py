@@ -8,7 +8,7 @@ import httpx
 import structlog
 
 from app.database import get_async_db
-from app.dependencies import get_current_active_user, get_workspace_id
+from app.core.auth_helper import verify_auth_and_get_user, require_admin_role
 # TODO: CredentialService needs to be implemented in new structure
 # from app.services.credential_service import CredentialService
 from app.config import settings

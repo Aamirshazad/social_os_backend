@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import base64
 
 from app.database import get_async_db
-from app.dependencies import get_current_active_user, get_workspace_id
+from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 # TODO: MediaService needs to be implemented in new structure
 # from app.services.media_service import media_service
 from app.config import settings

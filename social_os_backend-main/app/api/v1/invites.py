@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr, Field
 
 from app.database import get_async_db
-from app.dependencies import get_current_active_user, get_workspace_id, require_role
+from app.core.auth_helper import verify_auth_and_get_user, require_admin_role
 from app.models.workspace_invite import WorkspaceInvite
 import structlog
 

@@ -60,25 +60,25 @@ class AuthenticationService:
     
     @staticmethod
     async def verify_user_credentials(
-        db: AsyncSession,
         user_id: str
-    ) -> Optional[User]:
+    ):
         """
-        Verify user exists and is active
+        Verify user exists and is active using Supabase
         
         Args:
-            db: Async database session
             user_id: User ID
         
         Returns:
-            User object if valid, None otherwise
+            User data if valid, None otherwise
         """
         try:
-            result = await db.execute(select(User).where(User.id == user_id))
-            user = result.scalar_one_or_none()
+            supabase = AuthenticationService.get_supabase()
             
-            if user and user.is_active:
-                return user
+            # Get user from Supabase auth
+            response = supabase.auth.admin.get_user_by_id(user_id)
+            
+            if response.user:
+                return response.user
             
             return None
             

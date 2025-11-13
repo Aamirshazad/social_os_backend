@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 import structlog
 import json
 
-from app.application.services.auth import AuthenticationService
+from app.application.services.auth import AuthenticationService, TokenService
 from app.database import get_async_db
 from app.core.security import decode_token
 
@@ -55,7 +55,7 @@ class AutoTokenRefreshMiddleware(BaseHTTPMiddleware):
         
         try:
             # Check if token needs refresh
-            if AuthenticationService.is_token_expired(access_token):
+            if TokenService.is_token_expired(access_token):
                 logger.info("auto_refresh_triggered", 
                            path=request.url.path,
                            method=request.method)
@@ -64,11 +64,7 @@ class AutoTokenRefreshMiddleware(BaseHTTPMiddleware):
                 async for db in get_async_db():
                     try:
                         # Attempt auto refresh
-                        new_tokens = await AuthenticationService.auto_refresh_token_async(
-                            db=db,
-                            access_token=access_token,
-                            refresh_token=refresh_token
-                        )
+                        new_tokens = TokenService.refresh_tokens(refresh_token)
                         
                         if new_tokens:
                             # Process the original request with new token
@@ -156,7 +152,7 @@ class TokenValidationMiddleware(BaseHTTPMiddleware):
             if access_token in self._token_cache:
                 cached_data = self._token_cache[access_token]
                 # Use cached validation if token hasn't expired
-                if not AuthService.is_token_expired(access_token):
+                if not TokenService.is_token_expired(access_token):
                     request.state.user = cached_data
                     return await call_next(request)
                 else:

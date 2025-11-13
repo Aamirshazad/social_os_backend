@@ -2,6 +2,7 @@
 Token Service - JWT token operations
 """
 from typing import Dict, Any, Optional
+from datetime import datetime
 import structlog
 
 from app.models.user import User
@@ -106,3 +107,34 @@ class TokenService:
         except Exception as e:
             logger.warning("token_refresh_failed", error=str(e))
             raise AuthenticationError("Invalid refresh token")
+    
+    @staticmethod
+    def is_token_expired(token: str, buffer_minutes: int = 5) -> bool:
+        """
+        Check if token is expired or will expire within buffer time
+        
+        Args:
+            token: JWT token string
+            buffer_minutes: Minutes before expiry to consider token as expired
+        
+        Returns:
+            True if token is expired or will expire soon
+        """
+        try:
+            payload = decode_token(token)
+            exp_timestamp = payload.get("exp")
+            
+            if not exp_timestamp:
+                return True
+            
+            # Convert to datetime
+            exp_time = datetime.fromtimestamp(exp_timestamp)
+            current_time = datetime.utcnow()
+            
+            # Check if token expires within buffer time
+            buffer_time = current_time.timestamp() + (buffer_minutes * 60)
+            return exp_timestamp <= buffer_time
+            
+        except Exception:
+            # If we can't decode the token, consider it expired
+            return True

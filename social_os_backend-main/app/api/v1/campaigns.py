@@ -3,11 +3,11 @@ Campaign API endpoints - Campaign management
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 # TODO: CampaignService needs to be implemented in new structure
 # from app.services.campaign_service import CampaignService
@@ -67,7 +67,7 @@ async def get_campaigns(
     offset: int = Query(0, ge=0),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all campaigns for workspace
@@ -93,7 +93,7 @@ async def create_campaign(
     campaign_data: CampaignCreate,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Create a new campaign
@@ -115,7 +115,7 @@ async def get_campaign(
     campaign_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a specific campaign by ID
@@ -135,7 +135,7 @@ async def update_campaign(
     campaign_data: CampaignUpdate,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Update a campaign
@@ -157,7 +157,7 @@ async def delete_campaign(
     campaign_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Delete a campaign
@@ -178,7 +178,7 @@ async def get_campaign_posts(
     campaign_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all posts for a campaign
@@ -206,7 +206,7 @@ async def get_campaign_stats(
     campaign_id: str,
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get campaign statistics

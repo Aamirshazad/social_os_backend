@@ -3,10 +3,10 @@ Workspace Members API endpoints
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 from app.models.workspace_member import WorkspaceMember
 import structlog
@@ -32,7 +32,7 @@ async def get_members(
     role: Optional[str] = Query(None, pattern="^(admin|editor|viewer)$"),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get all members in the workspace

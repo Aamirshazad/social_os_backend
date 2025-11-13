@@ -3,10 +3,10 @@ Activity Log API endpoints
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 # TODO: ActivityService needs to be implemented in new structure
 # from app.services.activity_service import ActivityService
@@ -26,7 +26,7 @@ async def get_activity(
     offset: int = Query(0, ge=0),
     workspace_id: str = Depends(get_workspace_id),
     current_user: dict = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get workspace activity log

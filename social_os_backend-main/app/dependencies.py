@@ -4,9 +4,7 @@ Dependency injection functions for FastAPI
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.core.security import decode_token
 from app.core.exceptions import AuthenticationError
 import structlog
@@ -18,15 +16,13 @@ security = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> dict:
     """
     Get the current authenticated user from JWT token
     
     Args:
         credentials: HTTP Bearer token
-        db: Database session
     
     Returns:
         User information from token including role

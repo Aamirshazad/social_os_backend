@@ -3,11 +3,11 @@ Scheduler API endpoints - Post scheduling and queue management
 """
 from typing import List
 from fastapi import APIRouter, Depends, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 from app.application.services.publishing.scheduler_service import SchedulerService
 from app.application.services.content.post_service import PostService

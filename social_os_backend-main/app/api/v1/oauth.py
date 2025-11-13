@@ -3,11 +3,11 @@ OAuth API endpoints - Social platform OAuth flows
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 import structlog
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 # TODO: CredentialService needs to be implemented in new structure
 # from app.services.credential_service import CredentialService

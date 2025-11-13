@@ -2,11 +2,11 @@
 Media API endpoints - File uploads
 """
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 import base64
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 # TODO: MediaService needs to be implemented in new structure
 # from app.services.media_service import media_service

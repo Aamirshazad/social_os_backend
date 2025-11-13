@@ -3,9 +3,9 @@ Workspace API endpoints
 """
 from typing import List
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user
 from app.application.services.workspace.workspace_service import WorkspaceService
 from app.schemas.workspace import WorkspaceResponse

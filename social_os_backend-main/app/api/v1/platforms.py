@@ -3,10 +3,10 @@ Platform API endpoints - Publishing and platform management
 """
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 from app.application.services.publishing import PublisherService as PublishingService
 from app.application.services.auth.authentication_service import AuthenticationService

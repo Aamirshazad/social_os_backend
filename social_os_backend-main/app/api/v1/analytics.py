@@ -3,10 +3,10 @@ Analytics API endpoints - Post and platform analytics
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id
 from app.application.services.analytics import MetricsService
 import structlog

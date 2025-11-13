@@ -3,10 +3,10 @@ Workspace Invites API endpoints
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr, Field
 
-from app.database import get_db
+from app.database import get_async_db
 from app.dependencies import get_current_active_user, get_workspace_id, require_role
 from app.models.workspace_invite import WorkspaceInvite
 import structlog

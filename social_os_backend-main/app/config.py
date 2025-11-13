@@ -180,7 +180,7 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "case_sensitive": True,
         # Exclude problematic list fields from automatic env parsing since we handle them manually
-        "env_ignore": {"ALLOWED_IMAGE_TYPES", "ALLOWED_VIDEO_TYPES"}
+        "env_ignore": {"ALLOWED_IMAGE_TYPES", "ALLOWED_VIDEO_TYPES", "BACKEND_CORS_ORIGINS"}
     }
 
 

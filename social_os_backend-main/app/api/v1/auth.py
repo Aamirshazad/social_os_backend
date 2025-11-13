@@ -8,7 +8,7 @@ from sqlalchemy import select
 from pydantic import ValidationError
 from typing import Dict, Any
 
-from app.database import get_db, get_async_db
+from app.database import get_async_db
 from app.schemas.auth import LoginRequest, Token, RefreshTokenRequest, RegisterRequest
 from app.schemas.user import UserResponse
 from app.application.services.auth import AuthenticationService, RegistrationService, TokenService

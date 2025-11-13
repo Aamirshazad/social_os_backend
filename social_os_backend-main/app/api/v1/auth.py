@@ -1,7 +1,7 @@
 """
 Authentication API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
@@ -238,3 +238,27 @@ async def logout(request: Request):
     logger.info("user_logged_out", **security_info)
     
     return {"message": "Successfully logged out"}
+
+
+@router.options("/login")
+async def login_options():
+    """Handle preflight requests for login endpoint"""
+    return {"message": "OK"}
+
+
+@router.options("/register")
+async def register_options():
+    """Handle preflight requests for register endpoint"""
+    return {"message": "OK"}
+
+
+@router.options("/refresh")
+async def refresh_options():
+    """Handle preflight requests for refresh endpoint"""
+    return {"message": "OK"}
+
+
+@router.options("/logout")
+async def logout_options():
+    """Handle preflight requests for logout endpoint"""
+    return {"message": "OK"}

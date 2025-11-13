@@ -43,13 +43,31 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
 )
 
-# Add CORS middleware
+# Add CORS middleware - Simplified configuration for production
+cors_origins = [
+    "https://social-os-frontend.vercel.app",
+    "http://localhost:3000",
+    "https://localhost:3000"
+]
+
+# Override with environment variable if provided
+if hasattr(settings, 'BACKEND_CORS_ORIGINS_RAW') and settings.BACKEND_CORS_ORIGINS_RAW:
+    try:
+        import json
+        if settings.BACKEND_CORS_ORIGINS_RAW.startswith('['):
+            cors_origins = json.loads(settings.BACKEND_CORS_ORIGINS_RAW)
+        else:
+            cors_origins = [origin.strip() for origin in settings.BACKEND_CORS_ORIGINS_RAW.split(',') if origin.strip()]
+    except:
+        pass  # Use default origins if parsing fails
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.get_cors_origins(),
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Add GZip middleware for response compression
@@ -163,12 +181,31 @@ async def config_check():
         "database_url_configured": settings.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG,
-        "cors_origins": settings.get_cors_origins(),
+        "cors_origins": cors_origins,  # Show actual CORS origins being used
         "frontend_url": settings.FRONTEND_URL
     }
     
     # Don't expose actual values, just whether they're configured
     return config_status
+
+
+# CORS test endpoint
+@app.get("/cors-test")
+async def cors_test():
+    """Simple CORS test endpoint"""
+    return {"message": "CORS test successful", "timestamp": "2025-11-13T15:49:00Z"}
+
+
+@app.post("/cors-test")
+async def cors_test_post():
+    """CORS test endpoint for POST requests"""
+    return {"message": "CORS POST test successful", "timestamp": "2025-11-13T15:49:00Z"}
+
+
+@app.options("/cors-test")
+async def cors_test_options():
+    """CORS preflight test endpoint"""
+    return {"message": "CORS OPTIONS test successful"}
 
 
 # Include API router

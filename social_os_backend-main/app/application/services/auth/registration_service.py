@@ -5,6 +5,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import structlog
+import uuid
 
 from app.models.user import User
 from app.models.workspace import Workspace
@@ -61,8 +62,10 @@ class RegistrationService:
         
         # Create default workspace for user
         workspace_name = f"{full_name}'s Workspace" if full_name else f"{email.split('@')[0]}'s Workspace"
+        workspace_slug = f"workspace-{str(uuid.uuid4())[:8]}"
         workspace = Workspace(
             name=workspace_name,
+            slug=workspace_slug,
             owner_id=user.id,
             is_default=True
         )

@@ -79,20 +79,9 @@ class Settings(BaseSettings):
         """Get CORS origins for backward compatibility"""
         return self.get_cors_origins()
     
-    # Database
-    DATABASE_URL: str = Field(default="postgresql://user:pass@localhost:5432/dbname")
+    # Database - configured via SUPABASE_DB_URL environment variable
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
-    
-    def get_database_url(self) -> str:
-        """Get database URL - simplified for Supabase usage"""
-        # For Supabase, we primarily use the Supabase client, not direct PostgreSQL connections
-        # Only return DATABASE_URL if explicitly set, otherwise return default
-        if self.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname":
-            return self.DATABASE_URL
-        
-        # Return default - most operations will use Supabase client instead
-        return self.DATABASE_URL
     
     # JWT
     SECRET_KEY: str = Field(default_factory=lambda: os.getenv("SECRET_KEY") or "dev-secret-key-change-in-production-32-chars-minimum-for-security")

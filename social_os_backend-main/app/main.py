@@ -180,7 +180,6 @@ async def health_check():
         "status": "healthy",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
-        "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname",
         "services": {}
     }
     
@@ -219,14 +218,14 @@ async def health_check():
 @app.get("/config-check")
 async def config_check():
     """Configuration check endpoint for debugging environment variables"""
-    db_url = settings.get_database_url()
+    import os
+    db_url = os.getenv("SUPABASE_DB_URL", "not-configured")
     config_status = {
-        "raw_database_url_configured": settings.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname",
+        "supabase_db_url_configured": db_url != "not-configured",
         "final_database_url_masked": db_url[:20] + "***" + db_url[-20:] if len(db_url) > 40 else "***",
         "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
         "supabase_key_configured": settings.SUPABASE_KEY != "placeholder-key",
         "supabase_service_key_configured": settings.SUPABASE_SERVICE_ROLE_KEY != "placeholder-service-key",
-        "supabase_db_password_configured": settings.SUPABASE_DB_PASSWORD != "placeholder-db-password",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG,
         "cors_origins": cors_origins,  # Show actual CORS origins being used
@@ -275,15 +274,13 @@ async def test_database():
             return {
                 "status": "success",
                 "message": "Database connection successful",
-                "test_result": row[0] if row else None,
-                "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname"
+                "test_result": row[0] if row else None
             }
     except Exception as e:
         logger.error("database_test_failed", error=str(e))
         return {
             "status": "error",
-            "message": f"Database connection failed: {str(e)}",
-            "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname"
+            "message": f"Database connection failed: {str(e)}"
         }
 
 
@@ -291,11 +288,12 @@ async def test_database():
 @app.get("/debug-db-config")
 async def debug_database_config():
     """Debug database configuration (safe for production)"""
-    db_url = settings.get_database_url()
+    import os
+    db_url = os.getenv("SUPABASE_DB_URL", "not-configured")
     
     # Parse URL safely without exposing credentials
-    if db_url.startswith("postgresql://"):
-        parts = db_url.replace("postgresql://", "").split("@")
+    if db_url.startswith("postgresql"):
+        parts = db_url.replace("postgresql://", "").replace("postgresql+asyncpg://", "").split("@")
         if len(parts) == 2:
             host_part = parts[1].split("/")[0]  # host:port
             database_part = parts[1].split("/")[1] if "/" in parts[1] else "unknown"
@@ -307,9 +305,8 @@ async def debug_database_config():
         database_part = "unknown"
     
     return {
-        "database_url_is_default": db_url == "postgresql://user:pass@localhost:5432/dbname",
+        "supabase_db_url_configured": db_url != "not-configured",
         "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
-        "supabase_db_password_configured": settings.SUPABASE_DB_PASSWORD != "placeholder-db-password",
         "constructed_host": host_part,
         "constructed_database": database_part,
         "supabase_project_ref": settings.SUPABASE_URL.replace("https://", "").replace(".supabase.co", "") if settings.SUPABASE_URL != "https://placeholder.supabase.co" else "not-configured"

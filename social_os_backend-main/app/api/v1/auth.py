@@ -11,9 +11,7 @@ from typing import Dict, Any
 from app.database import get_async_db
 from app.schemas.auth import LoginRequest, Token, RefreshTokenRequest, RegisterRequest
 from app.schemas.user import UserResponse
-from app.application.services.auth import AuthenticationService, RegistrationService, TokenService
-from app.application.services.workspace import WorkspaceService
-from app.core.security import decode_token, create_access_token, create_refresh_token
+from app.application.services.auth.authentication_service import AuthenticationService
 from app.core.exceptions import AuthenticationError, DuplicateError
 import structlog
 
@@ -67,6 +65,69 @@ async def options_me():
     return Response(status_code=200)
 
 
+@router.get("/me")
+async def get_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Get current user profile with workspace and role
+    Matches Next.js fetchUserProfile pattern exactly
+    """
+    try:
+        # Extract token from Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing or invalid authorization header"
+            )
+        
+        token = auth_header.split(" ")[1]
+        
+        # Verify token with Supabase
+        supabase = AuthenticationService.get_supabase()
+        user_response = supabase.auth.get_user(token)
+        
+        if not user_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token"
+            )
+        
+        user_id = str(user_response.user.id)
+        
+        # Get user profile from database (workspace_id, role)
+        from app.models.user import User
+        result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        db_user = result.scalar_one_or_none()
+        
+        if not db_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User profile not found"
+            )
+        
+        return {
+            "id": user_id,
+            "email": user_response.user.email,
+            "full_name": user_response.user.user_metadata.get("full_name") if user_response.user.user_metadata else None,
+            "workspace_id": str(db_user.workspace_id),
+            "role": db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_current_user_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get user profile"
+        )
+
+
 @router.post("/register", response_model=Token)
 async def register(
     register_data: RegisterRequest,
@@ -83,33 +144,26 @@ async def register(
         security_info = validate_request_security(request)
         logger.info("registration_started", email=register_data.email, **security_info)
         
-        # Create user in Supabase first
-        logger.info("creating_supabase_user", email=register_data.email)
-        user = await AuthenticationService.register_user(
+        # Register user with Supabase - matches Next.js pattern exactly
+        logger.info("registering_supabase_user", email=register_data.email)
+        auth_response = AuthenticationService.register_user(
             email=register_data.email,
             password=register_data.password,
             full_name=register_data.full_name
         )
-        logger.info("supabase_user_created", user_id=user.id, email=register_data.email)
         
-        # Create workspace and user record in database
-        workspace_id = await RegistrationService.create_user_and_workspace(
-            db=db,
-            user_id=str(user.id),
-            email=register_data.email,
-            full_name=register_data.full_name
-        )
-        logger.info("user_and_workspace_created", workspace_id=workspace_id, user_id=str(user.id))
+        user = auth_response["user"]
+        session = auth_response["session"]
         
-        role = "admin"  # NEW USERS ARE ADMINS
+        logger.info("supabase_user_registered", user_id=str(user.id), email=register_data.email)
         
-        # Create tokens with role
-        tokens = TokenService.create_tokens(user, workspace_id, role)
-        logger.info("tokens_created_for_registration", user_id=str(user.id), role=role)
+        # Note: Workspace and user record creation is handled by Supabase triggers
+        # This matches the Next.js pattern exactly - no manual database operations needed
         
-        logger.info("user_registered_success", email=register_data.email, user_id=str(user.id), role=role, **security_info)
+        logger.info("user_registered_success", email=register_data.email, user_id=str(user.id), **security_info)
         
-        return tokens
+        # Return success message - frontend will handle session via Supabase client
+        return {"message": "Registration successful. Please check your email to confirm your account."}
         
     except DuplicateError as e:
         logger.warning("registration_duplicate", email=register_data.email, error=str(e), **security_info)
@@ -160,46 +214,24 @@ async def login(
         security_info = validate_request_security(request)
         logger.info("login_attempt", email=login_data.email, **security_info)
         
-        # Authenticate user using Supabase
-        user = await AuthenticationService.authenticate_user(
+        # Authenticate user using Supabase - matches Next.js pattern exactly
+        auth_response = AuthenticationService.authenticate_user(
             email=login_data.email,
             password=login_data.password
         )
+        
+        user = auth_response["user"]
+        session = auth_response["session"]
+        
         logger.info("supabase_auth_success", user_id=str(user.id), email=login_data.email)
         
-        # Get user record from database to get workspace and role
-        from app.models.user import User
-        logger.info("attempting_user_lookup", user_id=str(user.id), email=user.email)
+        # Note: User profile data (workspace_id, role) will be fetched by frontend
+        # using the same pattern as Next.js - via RPC or direct query with Supabase token
         
-        try:
-            user_result = await db.execute(
-                select(User).where(User.id == str(user.id))
-            )
-            db_user = user_result.scalar_one_or_none()
-            logger.info("user_lookup_result", found=bool(db_user), user_id=str(user.id))
-        except Exception as db_error:
-            logger.error("database_query_failed", error=str(db_error), user_id=str(user.id))
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database connection failed"
-            )
+        logger.info("user_logged_in", email=login_data.email, user_id=str(user.id), **security_info)
         
-        if not db_user:
-            logger.error("user_not_found_in_db", user_id=str(user.id), email=user.email)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found in database"
-            )
-        
-        workspace_id = str(db_user.workspace_id)
-        role = db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)
-        
-        # Create tokens with role
-        tokens = TokenService.create_tokens(user, workspace_id, role)
-        
-        logger.info("user_logged_in", email=login_data.email, user_id=str(user.id), role=role, **security_info)
-        
-        return tokens
+        # Return success message - frontend will handle session via Supabase client
+        return {"message": "Login successful"}
         
     except AuthenticationError as e:
         logger.warning("login_authentication_error", email=login_data.email, error=str(e), **security_info)

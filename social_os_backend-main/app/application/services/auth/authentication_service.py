@@ -1,12 +1,11 @@
 """
 Authentication Service - User authentication operations using Supabase
-"""
-from typing import Optional
-from supabase import create_client
+Matches Next.js authentication pattern exactly"""
+from typing import Optional, Dict, Any
+from supabase import create_client, Client
 import structlog
 
 from app.config import settings
-from app.core.security import verify_password
 from app.core.exceptions import AuthenticationError
 
 logger = structlog.get_logger()
@@ -16,24 +15,22 @@ class AuthenticationService:
     """Service for user authentication operations using Supabase"""
     
     @staticmethod
-    def get_supabase():
-        """Get Supabase client instance"""
+    def get_supabase() -> Client:
+        """Get Supabase client instance - matches Next.js pattern"""
         return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
     
     @staticmethod
-    async def authenticate_user(
-        email: str, 
-        password: str
-    ):
+    def authenticate_user(email: str, password: str) -> Dict[str, Any]:
         """
         Authenticate user with email and password using Supabase Auth
+        Matches Next.js signIn pattern exactly
         
         Args:
             email: User email
             password: User password
         
         Returns:
-            User data from Supabase
+            Supabase auth response with user and session
         
         Raises:
             AuthenticationError: If credentials are invalid
@@ -41,31 +38,40 @@ class AuthenticationService:
         try:
             supabase = AuthenticationService.get_supabase()
             
-            # Use Supabase auth to sign in
+            # Use Supabase auth to sign in - matches Next.js pattern
             response = supabase.auth.sign_in_with_password({
                 "email": email,
                 "password": password
             })
             
-            if response.user:
-                logger.info("user_authenticated", user_id=response.user.id, email=email)
-                return response.user
+            if response.user and response.session:
+                logger.info("supabase_auth_success", user_id=str(response.user.id), email=email)
+                return {
+                    "user": response.user,
+                    "session": response.session
+                }
             else:
-                logger.warning("authentication_failed", email=email, reason="invalid_credentials")
-                raise AuthenticationError("Invalid email or password")
+                logger.warning("supabase_auth_failed", email=email, error="No user or session returned")
+                raise AuthenticationError("Invalid credentials")
                 
         except Exception as e:
-            logger.warning("authentication_failed", email=email, error=str(e))
-            raise AuthenticationError("Invalid email or password")
+            logger.error("supabase_auth_error", email=email, error=str(e))
+            if "Invalid login credentials" in str(e):
+                raise AuthenticationError("Invalid email or password")
+            elif "Email not confirmed" in str(e):
+                raise AuthenticationError("Please confirm your email address")
+            else:
+                raise AuthenticationError(f"Authentication failed: {str(e)}")
     
     @staticmethod
-    async def register_user(
+    def register_user(
         email: str,
         password: str,
         full_name: Optional[str] = None
-    ):
+    ) -> Dict[str, Any]:
         """
-        Register a new user with Supabase Auth
+        Register new user with Supabase Auth
+        Matches Next.js signUp pattern exactly
         
         Args:
             email: User email
@@ -73,7 +79,7 @@ class AuthenticationService:
             full_name: User's full name
         
         Returns:
-            User data from Supabase
+            Supabase auth response with user and session
         
         Raises:
             AuthenticationError: If registration fails
@@ -81,27 +87,35 @@ class AuthenticationService:
         try:
             supabase = AuthenticationService.get_supabase()
             
-            # Use Supabase auth to sign up
+            # Use Supabase auth to sign up - matches Next.js pattern exactly
             response = supabase.auth.sign_up({
                 "email": email,
                 "password": password,
                 "options": {
                     "data": {
-                        "full_name": full_name or ""
-                    }
+                        "full_name": full_name
+                    } if full_name else {}
                 }
             })
             
             if response.user:
-                logger.info("user_registered", user_id=response.user.id, email=email)
-                return response.user
+                logger.info("supabase_registration_success", user_id=str(response.user.id), email=email)
+                return {
+                    "user": response.user,
+                    "session": response.session
+                }
             else:
-                logger.warning("registration_failed", email=email, reason="unknown")
+                logger.warning("supabase_registration_failed", email=email, error="No user returned")
                 raise AuthenticationError("Registration failed")
                 
         except Exception as e:
-            logger.warning("registration_failed", email=email, error=str(e))
-            raise AuthenticationError(f"Registration failed: {str(e)}")
+            logger.error("supabase_registration_error", email=email, error=str(e))
+            if "User already registered" in str(e):
+                raise AuthenticationError("User with this email already exists")
+            elif "Password should be at least" in str(e):
+                raise AuthenticationError("Password must be at least 6 characters long")
+            else:
+                raise AuthenticationError(f"Registration failed: {str(e)}")
     
     @staticmethod
     async def verify_user_credentials(

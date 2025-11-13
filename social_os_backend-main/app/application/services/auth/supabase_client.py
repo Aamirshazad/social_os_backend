@@ -1,6 +1,7 @@
 """
 Simplified Supabase Client for Authentication
-Matches Next.js Supabase integration pattern
+DEPRECATED: Use AuthenticationService with supabase library directly (matches Next.js pattern)
+This custom HTTP client is no longer needed
 """
 from typing import Optional, Dict, Any
 import httpx

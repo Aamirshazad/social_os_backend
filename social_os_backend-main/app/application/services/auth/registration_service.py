@@ -1,5 +1,7 @@
 """
 Registration Service - User registration operations using Supabase
+DEPRECATED: Workspace creation is now handled by Supabase triggers (matches Next.js pattern)
+Kept for backward compatibility with existing endpoints
 """
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession

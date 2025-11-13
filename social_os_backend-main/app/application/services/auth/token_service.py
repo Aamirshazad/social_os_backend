@@ -1,5 +1,7 @@
 """
 Token Service - JWT token operations
+DEPRECATED: This service is no longer needed as we use Supabase tokens directly
+Kept for backward compatibility with existing endpoints
 """
 from typing import Dict, Any, Optional
 from datetime import datetime

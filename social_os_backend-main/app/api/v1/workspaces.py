@@ -13,9 +13,7 @@ import structlog
 
 from app.database import get_async_db
 from app.models.workspace import Workspace
-from app.core.middleware.auth import create_request_context, require_admin
-from app.core.middleware.response_handler import success_response, error_response, validation_error_response
-from app.core.middleware.request_context import RequestContext
+from app.application.services.auth.authentication_service import AuthenticationService
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -43,12 +41,33 @@ async def get_workspace(
     Authorization: Any authenticated user
     """
     try:
-        # Create request context (handles authentication)
-        context = await create_request_context(request, db)
+        # Extract and verify token
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+        
+        token = auth_header.split(" ")[1]
+        supabase = AuthenticationService.get_supabase()
+        user_response = supabase.auth.get_user(token)
+        
+        if not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        
+        user_id = str(user_response.user.id)
+        
+        # Get user's workspace from database
+        from app.models.user import User
+        user_result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        db_user = user_result.scalar_one_or_none()
+        
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
         
         # Get workspace from database
         result = await db.execute(
-            select(Workspace).where(Workspace.id == context.workspaceId)
+            select(Workspace).where(Workspace.id == db_user.workspace_id)
         )
         workspace = result.scalar_one_or_none()
         
@@ -68,16 +87,14 @@ async def get_workspace(
             "updated_at": workspace.updated_at.isoformat()
         }
         
-        logger.info("workspace_fetched", workspace_id=context.workspaceId, request_id=context.requestId)
-        return success_response(workspace_data)
+        logger.info("workspace_fetched", workspace_id=str(workspace.id), user_id=user_id)
+        return workspace_data
         
     except HTTPException:
         raise
-    except ValidationError as e:
-        return validation_error_response(e, context.requestId if 'context' in locals() else None)
     except Exception as e:
         logger.error("get_workspace_error", error=str(e))
-        return error_response(e, context.requestId if 'context' in locals() else None)
+        raise HTTPException(status_code=500, detail="Failed to get workspace")
 
 
 @router.patch("/workspace")
@@ -94,15 +111,38 @@ async def update_workspace(
     Authorization: Admin role only
     """
     try:
-        # Create request context (handles authentication)
-        context = await create_request_context(request, db)
+        # Extract and verify token
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+        
+        token = auth_header.split(" ")[1]
+        supabase = AuthenticationService.get_supabase()
+        user_response = supabase.auth.get_user(token)
+        
+        if not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        
+        user_id = str(user_response.user.id)
+        
+        # Get user and check admin role
+        from app.models.user import User
+        user_result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        db_user = user_result.scalar_one_or_none()
+        
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
         
         # Check admin permission
-        require_admin(context)
+        user_role = db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)
+        if user_role != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
         
         # Get workspace from database
         result = await db.execute(
-            select(Workspace).where(Workspace.id == context.workspaceId)
+            select(Workspace).where(Workspace.id == db_user.workspace_id)
         )
         workspace = result.scalar_one_or_none()
         
@@ -130,16 +170,14 @@ async def update_workspace(
             "updated_at": workspace.updated_at.isoformat()
         }
         
-        logger.info("workspace_updated", workspace_id=context.workspaceId, updated_fields=list(update_fields.keys()), request_id=context.requestId)
-        return success_response(workspace_data)
+        logger.info("workspace_updated", workspace_id=str(workspace.id), updated_fields=list(update_fields.keys()), user_id=user_id)
+        return workspace_data
         
     except HTTPException:
         raise
-    except ValidationError as e:
-        return validation_error_response(e, context.requestId if 'context' in locals() else None)
     except Exception as e:
         logger.error("update_workspace_error", error=str(e))
-        return error_response(e, context.requestId if 'context' in locals() else None)
+        raise HTTPException(status_code=500, detail="Failed to update workspace")
 
 
 @router.delete("/workspace")
@@ -155,15 +193,38 @@ async def delete_workspace(
     Authorization: Admin role only
     """
     try:
-        # Create request context (handles authentication)
-        context = await create_request_context(request, db)
+        # Extract and verify token
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+        
+        token = auth_header.split(" ")[1]
+        supabase = AuthenticationService.get_supabase()
+        user_response = supabase.auth.get_user(token)
+        
+        if not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        
+        user_id = str(user_response.user.id)
+        
+        # Get user and check admin role
+        from app.models.user import User
+        user_result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        db_user = user_result.scalar_one_or_none()
+        
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
         
         # Check admin permission
-        require_admin(context)
+        user_role = db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)
+        if user_role != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
         
         # Get workspace from database
         result = await db.execute(
-            select(Workspace).where(Workspace.id == context.workspaceId)
+            select(Workspace).where(Workspace.id == db_user.workspace_id)
         )
         workspace = result.scalar_one_or_none()
         
@@ -174,13 +235,11 @@ async def delete_workspace(
         workspace.is_active = False
         await db.commit()
         
-        logger.info("workspace_deleted", workspace_id=context.workspaceId, request_id=context.requestId)
-        return success_response({"message": "Workspace deleted successfully"})
+        logger.info("workspace_deleted", workspace_id=str(workspace.id), user_id=user_id)
+        return {"message": "Workspace deleted successfully"}
         
     except HTTPException:
         raise
-    except ValidationError as e:
-        return validation_error_response(e, context.requestId if 'context' in locals() else None)
     except Exception as e:
         logger.error("delete_workspace_error", error=str(e))
-        return error_response(e, context.requestId if 'context' in locals() else None)
+        raise HTTPException(status_code=500, detail="Failed to delete workspace")

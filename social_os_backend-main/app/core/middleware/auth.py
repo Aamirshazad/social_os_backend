@@ -16,7 +16,7 @@ from app.models.workspace import Workspace
 from app.models.enums import UserRole
 from app.core.middleware.request_context import RequestContext
 from app.core.middleware.response_handler import UnauthorizedError, ForbiddenError
-from app.application.services.auth.supabase_client import SupabaseClient
+from app.application.services.auth.authentication_service import AuthenticationService
 
 logger = structlog.get_logger()
 
@@ -34,14 +34,20 @@ async def get_auth_user(request: Request) -> Dict[str, Any]:
         
         token = auth_header.split(" ")[1]
         
-        # Verify token with Supabase
-        supabase = SupabaseClient()
-        user_response = await supabase.verify_token(token)
+        # Verify token with Supabase using the library directly
+        supabase = AuthenticationService.get_supabase()
         
-        if not user_response or not user_response.get("user"):
+        # Get user from token (matches Next.js pattern)
+        user_response = supabase.auth.get_user(token)
+        
+        if not user_response.user:
             raise UnauthorizedError("Invalid or expired token")
         
-        return user_response["user"]
+        return {
+            "id": str(user_response.user.id),
+            "email": user_response.user.email,
+            "user_metadata": user_response.user.user_metadata
+        }
         
     except Exception as e:
         logger.error("auth_user_verification_failed", error=str(e))

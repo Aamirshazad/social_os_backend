@@ -22,7 +22,7 @@ class RegistrationService:
         db: AsyncSession,
         email: str,
         password: str,
-        full_name: str
+        full_name: Optional[str] = None
     ) -> User:
         """
         Create a new user account
@@ -60,8 +60,9 @@ class RegistrationService:
         await db.flush()  # Get the user ID
         
         # Create default workspace for user
+        workspace_name = f"{full_name}'s Workspace" if full_name else f"{email.split('@')[0]}'s Workspace"
         workspace = Workspace(
-            name=f"{full_name}'s Workspace",
+            name=workspace_name,
             owner_id=user.id,
             is_default=True
         )

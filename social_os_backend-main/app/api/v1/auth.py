@@ -4,6 +4,7 @@ Authentication API endpoints
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from pydantic import ValidationError
 from typing import Dict, Any
 
@@ -81,7 +82,7 @@ async def register(
         # Validate request security
         security_info = validate_request_security(request)
         
-        # Create user
+        # Create user (RegistrationService also creates default workspace)
         user = await RegistrationService.create_user(
             db=db,
             email=register_data.email,
@@ -89,29 +90,25 @@ async def register(
             full_name=register_data.full_name
         )
         
-        # Create default workspace for new user and make them admin
+        # Get the workspace that was created
         from app.models.workspace import Workspace
         from app.models.workspace_member import WorkspaceMember, MemberRole
         
-        # Create default workspace
-        default_workspace = Workspace(
-            name=f"{register_data.full_name or register_data.email.split('@')[0]}'s Workspace",
-            description="Default workspace",
-            owner_id=str(user.id)
+        workspace = await db.execute(
+            select(Workspace).where(Workspace.owner_id == user.id)
         )
-        db.add(default_workspace)
-        await db.flush()  # Flush to get the workspace ID
-        
-        workspace_id = str(default_workspace.id)
+        workspace_obj = workspace.scalar_one_or_none()
+        workspace_id = str(workspace_obj.id) if workspace_obj else None
         
         # Add user as admin to their workspace
-        workspace_member = WorkspaceMember(
-            workspace_id=workspace_id,
-            user_id=str(user.id),
-            role=MemberRole.ADMIN  # ✅ NEW USERS ARE ADMINS
-        )
-        db.add(workspace_member)
-        await db.commit()
+        if workspace_id:
+            workspace_member = WorkspaceMember(
+                workspace_id=workspace_id,
+                user_id=str(user.id),
+                role=MemberRole.ADMIN  # ✅ NEW USERS ARE ADMINS
+            )
+            db.add(workspace_member)
+            await db.commit()
         
         role = "admin"  # ✅ NEW USERS ARE ADMINS
         

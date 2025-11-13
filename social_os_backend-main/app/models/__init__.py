@@ -30,7 +30,6 @@ from app.models.audit_logs import AuditLog
 from app.models.credential_audit_log import CredentialAuditLog
 
 # Library and content
-from app.models.library import LibraryItem
 from app.models.post_library import PostLibrary
 from app.models.content_thread import ContentThread
 
@@ -58,7 +57,7 @@ __all__ = [
     "ActivityLog", "AuditLog", "CredentialAuditLog",
     
     # Library and content
-    "LibraryItem", "PostLibrary", "ContentThread",
+    "PostLibrary", "ContentThread",
     
     # OAuth and credentials
     "Credential", "OAuthState",

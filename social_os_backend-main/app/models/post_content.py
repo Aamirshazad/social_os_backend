@@ -30,16 +30,3 @@ class PostContent(BaseModel):
     changed_by_user = relationship("User", back_populates="post_content_changes")
 
 
-class PostMedia(BaseModel):
-    """Post media model matching Supabase schema"""
-    
-    __tablename__ = "post_media"
-    
-    post_id = Column(UUID(as_uuid=True), ForeignKey("posts.id"), nullable=False)
-    media_asset_id = Column(UUID(as_uuid=True), ForeignKey("media_assets.id"), nullable=False)
-    position_order = Column(Integer, default=0)
-    usage_caption = Column(Text, nullable=True)
-    
-    # Relationships
-    post = relationship("Post", back_populates="media")
-    media_asset = relationship("MediaAsset", back_populates="post_media")

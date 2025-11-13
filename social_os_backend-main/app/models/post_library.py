@@ -40,23 +40,3 @@ class PostLibrary(BaseModel):
     # Relationships
     workspace = relationship("Workspace", back_populates="post_library")
     creator = relationship("User", back_populates="library_posts")
-
-
-class PostPlatforms(BaseModel):
-    """Post platforms model matching Supabase schema"""
-    
-    __tablename__ = "post_platforms"
-    
-    post_id = Column(UUID(as_uuid=True), ForeignKey("posts.id"), nullable=False)
-    platform = Column(Enum(Platform), nullable=False)
-    platform_post_id = Column(String, nullable=True)
-    platform_status = Column(String, nullable=True)
-    platform_error_message = Column(Text, nullable=True)
-    platform_impressions = Column(Integer, default=0)
-    platform_engagement = Column(Integer, default=0)
-    platform_reach = Column(Integer, default=0)
-    posted_at = Column(DateTime(timezone=True), nullable=True)
-    error_at = Column(DateTime(timezone=True), nullable=True)
-    
-    # Relationships
-    post = relationship("Post", back_populates="platform_posts")

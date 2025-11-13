@@ -40,22 +40,4 @@ class OAuthState(BaseModel):
     workspace = relationship("Workspace", back_populates="oauth_states")
 
 
-class CredentialAuditLog(BaseModel):
-    """Credential audit log model matching Supabase schema"""
-    
-    __tablename__ = "credential_audit_log"
-    
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    platform = Column(Enum(Platform), nullable=False)
-    action = Column(String, nullable=False)
-    status = Column(String, nullable=False)
-    error_message = Column(Text, nullable=True)
-    error_code = Column(String, nullable=True)
-    metadata = Column(JSONB, default={})
-    ip_address = Column(String, nullable=True)
-    user_agent = Column(Text, nullable=True)
-    
-    # Relationships
-    workspace = relationship("Workspace", back_populates="credential_audit_logs")
-    user = relationship("User", back_populates="credential_audit_logs")
+# CredentialAuditLog moved to credential_audit_log.py

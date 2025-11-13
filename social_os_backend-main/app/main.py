@@ -54,10 +54,10 @@ if settings.DEBUG:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (safe behind proxy)
-    allow_credentials=False,  # Disable credentials when using wildcard
+    allow_origins=cors_origins,  # Use specific origins from settings
+    allow_credentials=True,  # Enable credentials for authentication
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
-    allow_headers=["*"],  # Allow all headers
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],  # Specific headers only
     expose_headers=["Content-Type", "Authorization"],
     max_age=3600  # Cache CORS preflight for 1 hour
 )

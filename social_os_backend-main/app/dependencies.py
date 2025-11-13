@@ -1,5 +1,7 @@
 """
 Dependency injection functions for FastAPI
+DEPRECATED: Use app.core.middleware.auth instead for new endpoints
+This file is kept for backward compatibility with existing endpoints
 """
 from typing import Optional
 from fastapi import Depends, HTTPException, status

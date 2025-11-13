@@ -232,53 +232,70 @@ async def get_current_user(request: Request):
     try:
         # Extract token from Authorization header
         auth_header = request.headers.get("Authorization")
+        logger.info("me_endpoint_called", auth_header_present=bool(auth_header))
+        
         if not auth_header or not auth_header.startswith("Bearer "):
+            logger.warning("missing_auth_header", auth_header=auth_header)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Missing or invalid authorization header"
             )
         
         token = auth_header.split(" ")[1]
+        logger.info("token_extracted", token_length=len(token) if token else 0)
         
         # Verify token and get user info
         from app.application.services.auth.token_service import TokenService
-        payload = TokenService.verify_token(token)
-        
-        if not payload:
-            logger.error("token_verification_failed", token_present=bool(token))
+        try:
+            payload = TokenService.verify_token(token)
+            logger.info("token_verified_successfully", payload_keys=list(payload.keys()) if payload else None)
+        except Exception as token_error:
+            logger.error("token_verification_error", error=str(token_error), token_preview=token[:20] if token else None)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token"
+                detail="User not found"
             )
         
-        # Log payload for debugging
-        logger.info("token_payload_debug", payload_keys=list(payload.keys()) if payload else None)
+        if not payload:
+            logger.error("token_verification_failed_empty_payload", token_present=bool(token))
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+            )
+        
+        # Log full payload for debugging
+        logger.info("token_payload_debug", payload=payload)
         
         # For now, return user info from JWT payload since we're using Supabase auth
         user_id = payload.get("sub") or payload.get("user_id")
         user_email = payload.get("email")
         
+        logger.info("extracted_user_info", user_id=user_id, user_email=user_email)
+        
         if not user_id:
             logger.error("missing_user_id_in_token", payload=payload)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing user ID"
+                detail="User not found"
             )
         
         if not user_email:
             logger.warning("missing_email_in_token", user_id=user_id)
         
-        return {
+        user_response = {
             "id": user_id,
             "email": user_email,
             "created_at": payload.get("iat"),
             "updated_at": payload.get("iat")
         }
         
+        logger.info("me_endpoint_success", user_id=user_id)
+        return user_response
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("get_current_user_error", error=str(e))
+        logger.error("get_current_user_error", error=str(e), error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get current user"
@@ -327,4 +344,10 @@ async def refresh_options():
 @router.options("/logout")
 async def logout_options():
     """Handle preflight requests for logout endpoint"""
+    return {"message": "OK"}
+
+
+@router.options("/me")
+async def me_options():
+    """Handle preflight requests for me endpoint"""
     return {"message": "OK"}

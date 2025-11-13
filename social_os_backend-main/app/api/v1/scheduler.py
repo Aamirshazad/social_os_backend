@@ -2,7 +2,7 @@
 Scheduler API endpoints - Post scheduling and queue management
 """
 from typing import List
-from fastapi import APIRouter, Depends, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -34,30 +34,37 @@ async def get_pending_scheduled_posts(
     
     Returns posts that are scheduled but not yet published
     """
-    # Verify authentication and get user data
-    user_id, user_data = await verify_auth_and_get_user(request, db)
-    workspace_id = user_data["workspace_id"]
-    
-    pending_posts = PostService.get_scheduled_posts(
-        db=db,
-        workspace_id=workspace_id
-    )
-    
-    return {
-        "success": True,
-        "data": {
-            "posts": [PostService.transformFromDB(p) for p in pending_posts],
-            "total": len(pending_posts)
+    try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
+        pending_posts = PostService.get_scheduled_posts(
+            db=db,
+            workspace_id=workspace_id
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "posts": [PostService.transformFromDB(p) for p in pending_posts],
+                "total": len(pending_posts)
+            }
         }
-    }
+        
+    except Exception as e:
+        logger.error("get_pending_scheduled_posts_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.post("/schedule")
 async def schedule_post(
-    request: SchedulePostRequest,
+    schedule_request: SchedulePostRequest,
     background_tasks: BackgroundTasks,
     request: Request,
-
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -65,50 +72,64 @@ async def schedule_post(
     
     The post will be automatically published at the scheduled time
     """
-    # Get post
-    post = PostService.get_post_by_id(
-        db=db,
-        post_id=request.post_id,
-        workspace_id=workspace_id
-    )
-    
-    # Update post with schedule
-    updated_post = PostService.update_post(
-        db=db,
-        post_id=request.post_id,
-        workspace_id=workspace_id,
-        post_data={
-            "scheduled_time": request.scheduled_time,
-            "status": "scheduled",
-            "platforms": request.platforms
+    try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
+        # Require editor or admin role
+        await require_editor_or_admin_role(user_data)
+        
+        # Get post
+        post = PostService.get_post_by_id(
+            db=db,
+            post_id=schedule_request.post_id,
+            workspace_id=workspace_id
+        )
+        
+        # Update post with schedule
+        updated_post = PostService.update_post(
+            db=db,
+            post_id=schedule_request.post_id,
+            workspace_id=workspace_id,
+            post_data={
+                "scheduled_time": schedule_request.scheduled_time,
+                "status": "scheduled",
+                "platforms": schedule_request.platforms
+            }
+        )
+        
+        # Add to background task queue
+        background_tasks.add_task(
+            SchedulerService.queue_scheduled_post,
+            post_id=schedule_request.post_id,
+            scheduled_time=schedule_request.scheduled_time
+        )
+        
+        logger.info(
+            "post_scheduled",
+            post_id=schedule_request.post_id,
+            scheduled_time=schedule_request.scheduled_time.isoformat()
+        )
+        
+        return {
+            "success": True,
+            "data": PostService.transformFromDB(updated_post),
+            "message": "Post scheduled successfully"
         }
-    )
-    
-    # Add to background task queue
-    background_tasks.add_task(
-        SchedulerService.queue_scheduled_post,
-        post_id=request.post_id,
-        scheduled_time=request.scheduled_time
-    )
-    
-    logger.info(
-        "post_scheduled",
-        post_id=request.post_id,
-        scheduled_time=request.scheduled_time.isoformat()
-    )
-    
-    return {
-        "success": True,
-        "data": PostService.transformFromDB(updated_post),
-        "message": "Post scheduled successfully"
-    }
+        
+    except Exception as e:
+        logger.error("schedule_post_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.delete("/{post_id}/cancel")
 async def cancel_scheduled_post(
     post_id: str,
     request: Request,
-
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -116,28 +137,42 @@ async def cancel_scheduled_post(
     
     Changes status back to draft
     """
-    from app.schemas.post import PostStatus
-    
-    updated_post = PostService.update_post_status(
-        db=db,
-        post_id=post_id,
-        workspace_id=workspace_id,
-        status=PostStatus.DRAFT
-    )
-    
-    logger.info("scheduled_post_cancelled", post_id=post_id)
-    
-    return {
-        "success": True,
-        "data": PostService.transformFromDB(updated_post),
-        "message": "Scheduled post cancelled"
-    }
+    try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
+        # Require editor or admin role
+        await require_editor_or_admin_role(user_data)
+        
+        from app.schemas.post import PostStatus
+        
+        updated_post = PostService.update_post_status(
+            db=db,
+            post_id=post_id,
+            workspace_id=workspace_id,
+            status=PostStatus.DRAFT
+        )
+        
+        logger.info("scheduled_post_cancelled", post_id=post_id)
+        
+        return {
+            "success": True,
+            "data": PostService.transformFromDB(updated_post),
+            "message": "Scheduled post cancelled"
+        }
+        
+    except Exception as e:
+        logger.error("cancel_scheduled_post_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.get("/queue/status")
 async def get_queue_status(
     request: Request,
-
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -145,12 +180,24 @@ async def get_queue_status(
     
     Returns information about pending and processing posts
     """
-    status = SchedulerService.get_queue_status(
-        db=db,
-        workspace_id=workspace_id
-    )
-    
-    return {
-        "success": True,
-        "data": status
-    }
+    try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
+        status = SchedulerService.get_queue_status(
+            db=db,
+            workspace_id=workspace_id
+        )
+        
+        return {
+            "success": True,
+            "data": status
+        }
+        
+    except Exception as e:
+        logger.error("get_queue_status_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

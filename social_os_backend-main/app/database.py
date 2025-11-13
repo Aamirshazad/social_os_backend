@@ -10,9 +10,12 @@ from typing import Generator, AsyncGenerator
 
 from app.config import settings
 
+# Get database URL (with Supabase fallback)
+database_url = settings.get_database_url()
+
 # Create SQLAlchemy engine
 engine = create_engine(
-    settings.DATABASE_URL,
+    database_url,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     pool_pre_ping=True,  # Enable connection health checks
@@ -21,7 +24,7 @@ engine = create_engine(
 
 # Create async engine
 async_engine = create_async_engine(
-    settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"),
+    database_url.replace("postgresql://", "postgresql+asyncpg://"),
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     pool_pre_ping=True,

@@ -178,8 +178,20 @@ async def health_check():
         "status": "healthy",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
+        "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname",
         "services": {}
     }
+    
+    # Check database connection
+    try:
+        from app.database import async_engine
+        async with async_engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        health_status["services"]["database"] = "healthy"
+    except Exception as e:
+        health_status["services"]["database"] = f"connection_error: {str(e)}"
+        health_status["status"] = "degraded"
+        logger.error("database_health_check_failed", error=str(e))
     
     # Check Supabase connection
     try:
@@ -206,7 +218,7 @@ async def config_check():
     config_status = {
         "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
         "supabase_service_key_configured": settings.SUPABASE_SERVICE_ROLE_KEY != "placeholder-service-key",
-        "database_url_configured": settings.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname",
+        "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG,
         "cors_origins": cors_origins,  # Show actual CORS origins being used
@@ -241,6 +253,30 @@ async def cors_test_post():
 async def test_login():
     """Test endpoint to verify CORS is working for POST requests"""
     return {"message": "Test login endpoint working", "cors": "success"}
+
+
+# Database test endpoint
+@app.get("/test-db")
+async def test_database():
+    """Test database connectivity without authentication"""
+    try:
+        from app.database import async_engine
+        async with async_engine.connect() as conn:
+            result = await conn.execute("SELECT 1 as test")
+            row = result.fetchone()
+            return {
+                "status": "success",
+                "message": "Database connection successful",
+                "test_result": row[0] if row else None,
+                "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname"
+            }
+    except Exception as e:
+        logger.error("database_test_failed", error=str(e))
+        return {
+            "status": "error",
+            "message": f"Database connection failed: {str(e)}",
+            "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname"
+        }
 
 
 # Removed specific auth OPTIONS handler - letting CORS middleware handle it

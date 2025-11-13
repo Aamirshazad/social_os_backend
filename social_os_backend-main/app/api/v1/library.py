@@ -26,8 +26,8 @@ class ArchivePostRequest(BaseModel):
     platform_results: List[dict] = Field(default_factory=list)
 
 
-class LibraryItemResponse(BaseModel):
-    """Response schema for library item"""
+class PostLibraryResponse(BaseModel):
+    """Response schema for post library item"""
     id: str
     workspace_id: str
     original_post_id: str
@@ -44,7 +44,7 @@ class LibraryItemResponse(BaseModel):
         from_attributes = True
 
 
-@router.get("", response_model=List[LibraryItemResponse])
+@router.get("", response_model=List[PostLibraryResponse])
 async def get_library_posts(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -72,7 +72,7 @@ async def get_library_posts(
     return items
 
 
-@router.post("", response_model=LibraryItemResponse, status_code=201)
+@router.post("", response_model=PostLibraryResponse, status_code=201)
 async def archive_post_to_library(
     request: ArchivePostRequest,
     workspace_id: str = Depends(get_workspace_id),
@@ -105,7 +105,7 @@ async def archive_post_to_library(
     return library_item
 
 
-@router.get("/{library_id}", response_model=LibraryItemResponse)
+@router.get("/{library_id}", response_model=PostLibraryResponse)
 async def get_library_item(
     library_id: str,
     workspace_id: str = Depends(get_workspace_id),

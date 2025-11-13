@@ -7,7 +7,7 @@ from sqlalchemy import and_, or_
 from datetime import datetime
 import structlog
 
-from app.models.library import LibraryItem
+from app.models.post_library import PostLibrary
 from app.core.exceptions import NotFoundError
 
 logger = structlog.get_logger()
@@ -26,7 +26,7 @@ class LibraryService:
         item_type: str = "text",
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None
-    ) -> LibraryItem:
+    ) -> PostLibrary:
         """
         Create a new library item
         
@@ -41,17 +41,18 @@ class LibraryService:
             metadata: Additional metadata
         
         Returns:
-            Created LibraryItem object
+            Created PostLibrary object
         """
         try:
-            item = LibraryItem(
+            item = PostLibrary(
                 workspace_id=workspace_id,
-                user_id=user_id,
+                created_by=user_id,
                 title=title,
                 content=content,
-                item_type=item_type,
-                tags=tags or [],
-                metadata=metadata or {}
+                post_type=item_type,
+                platforms=tags or [],
+                platform_data=metadata or {},
+                published_at=datetime.utcnow()
             )
             
             db.add(item)
@@ -67,7 +68,7 @@ class LibraryService:
             raise
     
     @staticmethod
-    def get_library_item(db: Session, item_id: str, workspace_id: str) -> LibraryItem:
+    def get_library_item(db: Session, item_id: str, workspace_id: str) -> PostLibrary:
         """
         Get library item by ID
         
@@ -77,13 +78,13 @@ class LibraryService:
             workspace_id: Workspace ID
         
         Returns:
-            LibraryItem object
+            PostLibrary object
         
         Raises:
             NotFoundError: If item not found
         """
-        item = db.query(LibraryItem).filter(
-            and_(LibraryItem.id == item_id, LibraryItem.workspace_id == workspace_id)
+        item = db.query(PostLibrary).filter(
+            and_(PostLibrary.id == item_id, PostLibrary.workspace_id == workspace_id)
         ).first()
         
         if not item:
@@ -99,7 +100,7 @@ class LibraryService:
         tags: Optional[List[str]] = None,
         limit: int = 50,
         offset: int = 0
-    ) -> List[LibraryItem]:
+    ) -> List[PostLibrary]:
         """
         Get library items with filtering
         
@@ -112,18 +113,18 @@ class LibraryService:
             offset: Number of items to skip
         
         Returns:
-            List of LibraryItem objects
+            List of PostLibrary objects
         """
-        query = db.query(LibraryItem).filter(LibraryItem.workspace_id == workspace_id)
+        query = db.query(PostLibrary).filter(PostLibrary.workspace_id == workspace_id)
         
         if item_type:
-            query = query.filter(LibraryItem.item_type == item_type)
+            query = query.filter(PostLibrary.post_type == item_type)
         
         if tags:
             for tag in tags:
-                query = query.filter(LibraryItem.tags.any(tag))
+                query = query.filter(PostLibrary.platforms.any(tag))
         
-        items = query.order_by(LibraryItem.created_at.desc()).offset(offset).limit(limit).all()
+        items = query.order_by(PostLibrary.created_at.desc()).offset(offset).limit(limit).all()
         
         return items
     
@@ -133,7 +134,7 @@ class LibraryService:
         item_id: str,
         workspace_id: str,
         **updates
-    ) -> LibraryItem:
+    ) -> PostLibrary:
         """
         Update library item
         
@@ -144,7 +145,7 @@ class LibraryService:
             **updates: Fields to update
         
         Returns:
-            Updated LibraryItem object
+            Updated PostLibrary object
         
         Raises:
             NotFoundError: If item not found
@@ -191,7 +192,7 @@ class LibraryService:
         workspace_id: str,
         query: str,
         limit: int = 20
-    ) -> List[LibraryItem]:
+    ) -> List[PostLibrary]:
         """
         Search library items
         
@@ -204,16 +205,16 @@ class LibraryService:
         Returns:
             List of matching library items
         """
-        items = db.query(LibraryItem).filter(
+        items = db.query(PostLibrary).filter(
             and_(
-                LibraryItem.workspace_id == workspace_id,
+                PostLibrary.workspace_id == workspace_id,
                 or_(
-                    LibraryItem.title.ilike(f"%{query}%"),
-                    LibraryItem.content.ilike(f"%{query}%"),
-                    LibraryItem.tags.any(query.lower())
+                    PostLibrary.title.ilike(f"%{query}%"),
+                    PostLibrary.content.ilike(f"%{query}%"),
+                    PostLibrary.platforms.any(query.lower())
                 )
             )
-        ).order_by(LibraryItem.created_at.desc()).limit(limit).all()
+        ).order_by(PostLibrary.created_at.desc()).limit(limit).all()
         
         return items
     
@@ -231,11 +232,11 @@ class LibraryService:
             List of tags with usage counts
         """
         try:
-            items = db.query(LibraryItem).filter(LibraryItem.workspace_id == workspace_id).all()
+            items = db.query(PostLibrary).filter(PostLibrary.workspace_id == workspace_id).all()
             
             tag_counts: dict[str, int] = {}
             for item in items:
-                for tag in item.tags or []:
+                for tag in item.platforms or []:
                     tag_counts[tag] = tag_counts.get(tag, 0) + 1
             
             # Sort by count and return top tags

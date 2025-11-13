@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Debug Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>CORS Debug Tool</h1>
+    
+    <div class="test-section">
+        <h3>Test 1: Simple GET Request</h3>
+        <button onclick="testSimpleGet()">Test GET /health</button>
+        <div id="test1-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 2: CORS Test Endpoint</h3>
+        <button onclick="testCorsEndpoint()">Test GET /cors-test</button>
+        <div id="test2-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 3: POST Request (Triggers Preflight)</h3>
+        <button onclick="testPostRequest()">Test POST /cors-test</button>
+        <div id="test3-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 4: Auth Login (The Failing Request)</h3>
+        <button onclick="testAuthLogin()">Test POST /auth/login</button>
+        <div id="test4-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://social-os-backend-6.onrender.com';
+        
+        function showResult(testId, success, message, data = null) {
+            const resultDiv = document.getElementById(testId + '-result');
+            resultDiv.className = `result ${success ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `
+                <strong>${success ? '✅ Success' : '❌ Error'}:</strong> ${message}
+                ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+        }
+        
+        async function testSimpleGet() {
+            try {
+                const response = await fetch(`${API_BASE}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+                const data = await response.json();
+                showResult('test1', response.ok, `Status: ${response.status}`, data);
+            } catch (error) {
+                showResult('test1', false, error.message);
+            }
+        }
+        
+        async function testCorsEndpoint() {
+            try {
+                const response = await fetch(`${API_BASE}/cors-test`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+                const data = await response.json();
+                showResult('test2', response.ok, `Status: ${response.status}`, data);
+            } catch (error) {
+                showResult('test2', false, error.message);
+            }
+        }
+        
+        async function testPostRequest() {
+            try {
+                const response = await fetch(`${API_BASE}/cors-test`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ test: 'data' })
+                });
+                const data = await response.json();
+                showResult('test3', response.ok, `Status: ${response.status}`, data);
+            } catch (error) {
+                showResult('test3', false, error.message);
+            }
+        }
+        
+        async function testAuthLogin() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'testpassword'
+                    })
+                });
+                const data = await response.json();
+                showResult('test4', response.ok, `Status: ${response.status}`, data);
+            } catch (error) {
+                showResult('test4', false, error.message);
+            }
+        }
+    </script>
+</body>
+</html>

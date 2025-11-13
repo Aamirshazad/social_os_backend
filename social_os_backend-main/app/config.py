@@ -145,9 +145,12 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": True,
+        # Exclude problematic list fields from automatic env parsing since we handle them manually
+        "env_ignore": {"BACKEND_CORS_ORIGINS", "ALLOWED_IMAGE_TYPES", "ALLOWED_VIDEO_TYPES"}
+    }
 
 
 # Create global settings instance

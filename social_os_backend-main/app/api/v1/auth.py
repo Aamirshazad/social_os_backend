@@ -76,73 +76,71 @@ async def register(
     """
     Register a new user
     
-    Creates user account and returns JWT tokens with role
+    Creates user account in Supabase and returns JWT tokens with role
     """
     try:
         # Validate request security
         security_info = validate_request_security(request)
+        logger.info("registration_started", email=register_data.email, **security_info)
         
-        # Create user (RegistrationService also creates default workspace)
-        user = await RegistrationService.create_user(
-            db=db,
+        # Create user in Supabase first
+        logger.info("creating_supabase_user", email=register_data.email)
+        user = await AuthenticationService.register_user(
             email=register_data.email,
             password=register_data.password,
             full_name=register_data.full_name
         )
+        logger.info("supabase_user_created", user_id=user.id, email=register_data.email)
         
-        # Get the workspace that was created
-        from app.models.workspace import Workspace
-        from app.models.workspace_member import WorkspaceMember, MemberRole
-        
-        workspace = await db.execute(
-            select(Workspace).where(Workspace.owner_id == user.id)
+        # Create workspace and user record in database
+        workspace_id = await RegistrationService.create_user_and_workspace(
+            db=db,
+            user_id=str(user.id),
+            email=register_data.email,
+            full_name=register_data.full_name
         )
-        workspace_obj = workspace.scalar_one_or_none()
-        workspace_id = str(workspace_obj.id) if workspace_obj else None
-        
-        # Add user as admin to their workspace
-        if workspace_id:
-            workspace_member = WorkspaceMember(
-                workspace_id=workspace_id,
-                user_id=str(user.id),
-                role=MemberRole.ADMIN  # NEW USERS ARE ADMINS
-            )
-            db.add(workspace_member)
-            await db.commit()
+        logger.info("user_and_workspace_created", workspace_id=workspace_id, user_id=str(user.id))
         
         role = "admin"  # NEW USERS ARE ADMINS
         
         # Create tokens with role
         tokens = TokenService.create_tokens(user, workspace_id, role)
+        logger.info("tokens_created_for_registration", user_id=str(user.id), role=role)
         
-        logger.info("user_registered", email=register_data.email, user_id=str(user.id), role=role, **security_info)
+        logger.info("user_registered_success", email=register_data.email, user_id=str(user.id), role=role, **security_info)
         
         return tokens
         
     except DuplicateError as e:
-        logger.warning("registration_duplicate", email=register_data.email, **security_info)
+        logger.warning("registration_duplicate", email=register_data.email, error=str(e), **security_info)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e)
         )
+    except AuthenticationError as e:
+        logger.warning("registration_auth_error", email=register_data.email, error=str(e), **security_info)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except ValidationError as e:
-        logger.warning("registration_validation_error", errors=e.errors(), **security_info)
+        logger.warning("registration_validation_error", email=register_data.email, errors=e.errors(), **security_info)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=e.errors()
         )
     except ValueError as e:
-        logger.warning("registration_value_error", error=str(e), **security_info)
+        logger.warning("registration_value_error", email=register_data.email, error=str(e), **security_info)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
         import traceback
-        logger.error("register_error", error=str(e), traceback=traceback.format_exc(), **security_info)
+        logger.error("register_error", email=register_data.email, error=str(e), error_type=type(e).__name__, traceback=traceback.format_exc(), **security_info)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            detail="Registration failed"
         )
 
 
@@ -167,23 +165,22 @@ async def login(
             password=login_data.password
         )
         
-        # Get user's workspace and role
-        workspaces = await WorkspaceService.get_user_workspaces_async(db, str(user.id))
-        workspace_id = str(workspaces[0].id) if workspaces else None
+        # Get user record from database to get workspace and role
+        from app.models.user import User
+        user_result = await db.execute(
+            select(User).where(User.id == str(user.id))
+        )
+        db_user = user_result.scalar_one_or_none()
         
-        # Get user's role in workspace (default to editor if no specific role)
-        role = "editor"
-        if workspace_id:
-            from app.models.workspace_member import WorkspaceMember
-            member_result = await db.execute(
-                select(WorkspaceMember).where(
-                    (WorkspaceMember.workspace_id == workspace_id) &
-                    (WorkspaceMember.user_id == str(user.id))
-                )
+        if not db_user:
+            logger.error("user_not_found_in_db", user_id=str(user.id), email=user.email)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found in database"
             )
-            member = member_result.scalar_one_or_none()
-            if member:
-                role = member.role.value if hasattr(member.role, 'value') else str(member.role)
+        
+        workspace_id = str(db_user.workspace_id)
+        role = db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)
         
         # Create tokens with role
         tokens = TokenService.create_tokens(user, workspace_id, role)

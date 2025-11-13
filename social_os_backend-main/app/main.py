@@ -219,13 +219,14 @@ async def health_check():
 async def config_check():
     """Configuration check endpoint for debugging environment variables"""
     import os
-    db_url = os.getenv("SUPABASE_DB_URL", "not-configured")
+    supabase_url = os.getenv("SUPABASE_URL", "not-configured")
+    supabase_key = os.getenv("SUPABASE_KEY", "not-configured")
+    supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "not-configured")
+    
     config_status = {
-        "supabase_db_url_configured": db_url != "not-configured",
-        "final_database_url_masked": db_url[:20] + "***" + db_url[-20:] if len(db_url) > 40 else "***",
-        "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
-        "supabase_key_configured": settings.SUPABASE_KEY != "placeholder-key",
-        "supabase_service_key_configured": settings.SUPABASE_SERVICE_ROLE_KEY != "placeholder-service-key",
+        "supabase_url_configured": supabase_url != "not-configured",
+        "supabase_key_configured": supabase_key != "not-configured",
+        "supabase_service_role_key_configured": supabase_service_key != "not-configured",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG,
         "cors_origins": cors_origins,  # Show actual CORS origins being used
@@ -289,27 +290,22 @@ async def test_database():
 async def debug_database_config():
     """Debug database configuration (safe for production)"""
     import os
-    db_url = os.getenv("SUPABASE_DB_URL", "not-configured")
+    supabase_url = os.getenv("SUPABASE_URL", "not-configured")
+    supabase_key = os.getenv("SUPABASE_KEY", "not-configured")
+    supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "not-configured")
     
-    # Parse URL safely without exposing credentials
-    if db_url.startswith("postgresql"):
-        parts = db_url.replace("postgresql://", "").replace("postgresql+asyncpg://", "").split("@")
-        if len(parts) == 2:
-            host_part = parts[1].split("/")[0]  # host:port
-            database_part = parts[1].split("/")[1] if "/" in parts[1] else "unknown"
-        else:
-            host_part = "unknown"
-            database_part = "unknown"
+    # Extract project ref from Supabase URL
+    if supabase_url != "not-configured":
+        project_ref = supabase_url.replace("https://", "").replace(".supabase.co", "")
     else:
-        host_part = "unknown"
-        database_part = "unknown"
+        project_ref = "not-configured"
     
     return {
-        "supabase_db_url_configured": db_url != "not-configured",
-        "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
-        "constructed_host": host_part,
-        "constructed_database": database_part,
-        "supabase_project_ref": settings.SUPABASE_URL.replace("https://", "").replace(".supabase.co", "") if settings.SUPABASE_URL != "https://placeholder.supabase.co" else "not-configured"
+        "supabase_url_configured": supabase_url != "not-configured",
+        "supabase_key_configured": supabase_key != "not-configured",
+        "supabase_service_role_key_configured": supabase_service_key != "not-configured",
+        "supabase_project_ref": project_ref,
+        "constructed_db_host": f"db.{project_ref}.supabase.co" if project_ref != "not-configured" else "not-configured"
     }
 
 

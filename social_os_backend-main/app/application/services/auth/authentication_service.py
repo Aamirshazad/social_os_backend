@@ -59,6 +59,51 @@ class AuthenticationService:
             raise AuthenticationError("Invalid email or password")
     
     @staticmethod
+    async def register_user(
+        email: str,
+        password: str,
+        full_name: Optional[str] = None
+    ):
+        """
+        Register a new user with Supabase Auth
+        
+        Args:
+            email: User email
+            password: User password
+            full_name: User's full name
+        
+        Returns:
+            User data from Supabase
+        
+        Raises:
+            AuthenticationError: If registration fails
+        """
+        try:
+            supabase = AuthenticationService.get_supabase()
+            
+            # Use Supabase auth to sign up
+            response = supabase.auth.sign_up({
+                "email": email,
+                "password": password,
+                "options": {
+                    "data": {
+                        "full_name": full_name or ""
+                    }
+                }
+            })
+            
+            if response.user:
+                logger.info("user_registered", user_id=response.user.id, email=email)
+                return response.user
+            else:
+                logger.warning("registration_failed", email=email, reason="unknown")
+                raise AuthenticationError("Registration failed")
+                
+        except Exception as e:
+            logger.warning("registration_failed", email=email, error=str(e))
+            raise AuthenticationError(f"Registration failed: {str(e)}")
+    
+    @staticmethod
     async def verify_user_credentials(
         user_id: str
     ):

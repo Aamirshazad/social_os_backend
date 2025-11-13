@@ -60,44 +60,43 @@ class AutoTokenRefreshMiddleware(BaseHTTPMiddleware):
                            path=request.url.path,
                            method=request.method)
                 
-                # Get database session
-                async for db in get_async_db():
-                    try:
-                        # Attempt auto refresh
-                        new_tokens = TokenService.refresh_tokens(refresh_token)
-                        
-                        if new_tokens:
-                            # Process the original request with new token
-                            request.headers.__dict__["_list"] = [
-                                (k, v) for k, v in request.headers.items() 
-                                if k.lower() != "authorization"
-                            ]
-                            request.headers.__dict__["_list"].append(
-                                ("authorization", f"Bearer {new_tokens['access_token']}")
-                            )
-                            
-                            # Process request
-                            response = await call_next(request)
-                            
-                            # Add new tokens to response headers
-                            response.headers["x-new-access-token"] = new_tokens["access_token"]
-                            response.headers["x-new-refresh-token"] = new_tokens["refresh_token"]
-                            response.headers["x-token-refreshed"] = "true"
-                            
-                            logger.info("auto_refresh_successful",
-                                       path=request.url.path,
-                                       method=request.method)
-                            
-                            return response
-                        else:
-                            # Refresh failed, let request proceed with original token
-                            logger.warning("auto_refresh_failed_proceeding",
-                                         path=request.url.path,
-                                         method=request.method)
-                            return await call_next(request)
+                # Attempt auto refresh without database dependency
+                try:
+                    new_tokens = TokenService.refresh_tokens(refresh_token)
                     
-                    finally:
-                        await db.close()
+                    if new_tokens:
+                        # Process the original request with new token
+                        request.headers.__dict__["_list"] = [
+                            (k, v) for k, v in request.headers.items() 
+                            if k.lower() != "authorization"
+                        ]
+                        request.headers.__dict__["_list"].append(
+                            ("authorization", f"Bearer {new_tokens['access_token']}")
+                        )
+                        
+                        # Process request
+                        response = await call_next(request)
+                        
+                        # Add new tokens to response headers
+                        response.headers["x-new-access-token"] = new_tokens["access_token"]
+                        response.headers["x-new-refresh-token"] = new_tokens["refresh_token"]
+                        response.headers["x-token-refreshed"] = "true"
+                        
+                        logger.info("auto_refresh_successful",
+                                   path=request.url.path,
+                                   method=request.method)
+                        
+                        return response
+                    else:
+                        # Refresh failed, let request proceed with original token
+                        logger.warning("auto_refresh_failed_proceeding",
+                                     path=request.url.path,
+                                     method=request.method)
+                        return await call_next(request)
+                
+                except Exception as refresh_error:
+                    logger.error("token_refresh_error", error=str(refresh_error))
+                    return await call_next(request)
             
             # Token doesn't need refresh, proceed normally
             return await call_next(request)

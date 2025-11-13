@@ -1,5 +1,5 @@
 """
-Registration Service - User registration operations
+Registration Service - User registration operations using Supabase
 """
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,116 +7,71 @@ from sqlalchemy import select
 import structlog
 import uuid
 
-from app.models.user import User
 from app.models.workspace import Workspace
-from app.core.security import get_password_hash
+from app.models.user import User, UserRole
 from app.core.exceptions import DuplicateError
+from app.application.services.auth.authentication_service import AuthenticationService
 
 logger = structlog.get_logger()
 
 
 class RegistrationService:
-    """Service for user registration operations"""
+    """Service for user registration operations using Supabase"""
     
     @staticmethod
-    async def create_user(
+    async def create_user_and_workspace(
         db: AsyncSession,
+        user_id: str,
         email: str,
-        password: str,
         full_name: Optional[str] = None
-    ) -> User:
+    ) -> Optional[str]:
         """
-        Create a new user account
+        Create workspace and user record after Supabase registration
         
         Args:
             db: Async database session
+            user_id: Supabase user ID
             email: User email
-            password: User password
             full_name: User's full name
         
         Returns:
-            Created User object
-        
-        Raises:
-            DuplicateError: If user with email already exists
-        """
-        # Check if user already exists
-        result = await db.execute(select(User).where(User.email == email))
-        existing_user = result.scalar_one_or_none()
-        
-        if existing_user:
-            logger.warning("user_registration_failed", email=email, reason="email_exists")
-            raise DuplicateError(f"User with email {email} already exists")
-        
-        # Create new user
-        hashed_password = get_password_hash(password)
-        user = User(
-            email=email,
-            hashed_password=hashed_password,
-            full_name=full_name,
-            is_active=True
-        )
-        
-        db.add(user)
-        await db.flush()  # Get the user ID
-        
-        # Create default workspace for user
-        workspace_name = f"{full_name}'s Workspace" if full_name else f"{email.split('@')[0]}'s Workspace"
-        workspace_slug = f"workspace-{str(uuid.uuid4())[:8]}"
-        workspace = Workspace(
-            name=workspace_name,
-            slug=workspace_slug,
-            owner_id=user.id,
-            is_default=True
-        )
-        
-        db.add(workspace)
-        await db.commit()
-        await db.refresh(user)
-        
-        logger.info("user_created", user_id=str(user.id), email=email)
-        return user
-    
-    @staticmethod
-    async def get_user_by_email(
-        db: AsyncSession,
-        email: str
-    ) -> Optional[User]:
-        """
-        Get user by email address
-        
-        Args:
-            db: Async database session
-            email: User email
-        
-        Returns:
-            User object if found, None otherwise
+            Created workspace ID or None if failed
         """
         try:
-            result = await db.execute(select(User).where(User.email == email))
-            return result.scalar_one_or_none()
+            # Create workspace first
+            workspace_name = f"{full_name}'s Workspace" if full_name else f"{email.split('@')[0]}'s Workspace"
+            workspace = Workspace(
+                name=workspace_name,
+                description=f"Personal workspace for {full_name or email}",
+                is_active=True
+            )
+            
+            db.add(workspace)
+            await db.flush()  # Get workspace ID
+            
+            # Create user record in database
+            user = User(
+                id=user_id,  # Use Supabase user ID
+                workspace_id=workspace.id,
+                email=email,
+                full_name=full_name,
+                role=UserRole.ADMIN,  # First user in workspace is admin
+                is_active=True
+            )
+            
+            db.add(user)
+            await db.commit()
+            await db.refresh(workspace)
+            
+            logger.info("user_and_workspace_created", 
+                       workspace_id=str(workspace.id), 
+                       user_id=user_id, 
+                       email=email,
+                       role="admin")
+            return str(workspace.id)
+            
         except Exception as e:
-            logger.error("get_user_by_email_error", error=str(e), email=email)
+            logger.error("user_workspace_creation_failed", error=str(e), user_id=user_id, email=email)
+            await db.rollback()
             return None
     
-    @staticmethod
-    async def get_user_by_id(
-        db: AsyncSession,
-        user_id: str
-    ) -> Optional[User]:
-        """
-        Get user by ID
-        
-        Args:
-            db: Async database session
-            user_id: User ID
-        
-        Returns:
-            User object if found, None otherwise
-        """
-        try:
-            result = await db.execute(select(User).where(User.id == user_id))
-            return result.scalar_one_or_none()
-        except Exception as e:
-            logger.error("get_user_by_id_error", error=str(e), user_id=user_id)
-            return None

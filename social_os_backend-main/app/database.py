@@ -1,5 +1,5 @@
 """
-Database configuration and session management
+Database configuration and session management using Supabase
 """
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -7,25 +7,40 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from typing import AsyncGenerator
 import structlog
 import os
+from supabase import create_client
 
 logger = structlog.get_logger()
 
-# Get database URL directly from environment variable (like Supabase client)
-supabase_db_url = os.getenv("SUPABASE_DB_URL")
+# Get Supabase credentials from environment (like Supabase client)
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
 
-if not supabase_db_url:
-    raise ValueError("SUPABASE_DB_URL environment variable is not configured")
+if not supabase_url or not supabase_key:
+    raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables are not configured")
 
 logger.info(
     "database_configuration",
-    database_url_configured=True,
-    message="Using SUPABASE_DB_URL from environment"
+    database_configured=True,
+    message="Using SUPABASE_URL and SUPABASE_KEY from environment"
 )
 
-# Convert to async URL if needed
-async_database_url = supabase_db_url
-if "postgresql://" in async_database_url and "postgresql+asyncpg://" not in async_database_url:
-    async_database_url = async_database_url.replace("postgresql://", "postgresql+asyncpg://")
+# Create Supabase client for API operations
+supabase_client = create_client(supabase_url, supabase_key)
+
+# Extract project ref from Supabase URL for direct PostgreSQL connection
+# Format: https://[project-ref].supabase.co
+project_ref = supabase_url.replace("https://", "").replace(".supabase.co", "")
+
+# For direct database access, construct async PostgreSQL connection string
+# Using the service role key as password (from Supabase settings)
+service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+if service_role_key:
+    # Use service role key as the database password
+    async_database_url = f"postgresql+asyncpg://postgres:{service_role_key}@db.{project_ref}.supabase.co:5432/postgres?sslmode=require"
+else:
+    # Fallback: construct a basic connection (will fail if service role key not set)
+    async_database_url = f"postgresql+asyncpg://postgres:@db.{project_ref}.supabase.co:5432/postgres?sslmode=require"
+    logger.warning("SUPABASE_SERVICE_ROLE_KEY not configured, direct database access may fail")
 
 # Create async engine only (FastAPI is async)
 async_engine = create_async_engine(

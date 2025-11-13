@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: social-media-ai-backend
+    env: python
+    plan: starter
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app -c gunicorn.conf.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PIP_NO_CACHE_DIR
+        value: 1
+      - key: PIP_DISABLE_PIP_VERSION_CHECK
+        value: 1
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: BACKEND_CORS_ORIGINS
+        value: "http://localhost:3000,https://localhost:3000,https://social-ms.vercel.app"
+      - key: FRONTEND_URL
+        value: "https://social-ms.vercel.app"
+      - key: CALLBACK_URL
+        sync: false
+    healthCheckPath: /health

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Role Update Notification</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+        .button:hover { background: #2563eb; }
+        .role-update { background: white; padding: 20px; margin: 20px 0; border-radius: 6px; border: 2px solid #10b981; text-align: center; }
+        .role-badge { background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 20px; font-size: 16px; font-weight: bold; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔄 Role Updated</h1>
+        <p>Your permissions have been updated</p>
+    </div>
+    
+    <div class="content">
+        <p>Hi {{ user_name }}!</p>
+        
+        <p>Your role in <strong>{{ workspace_name }}</strong> has been updated.</p>
+        
+        <div class="role-update">
+            <p><strong>Your new role:</strong></p>
+            <span class="role-badge">{{ new_role }}</span>
+        </div>
+        
+        <p>This change affects your permissions and access level within the workspace. Here's what each role can do:</p>
+        
+        <ul>
+            <li><strong>Admin:</strong> Full access - manage members, settings, billing, and all content</li>
+            <li><strong>Editor:</strong> Create, edit, and publish content across all platforms</li>
+            <li><strong>Viewer:</strong> View content and analytics, but cannot make changes</li>
+        </ul>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ dashboard_url }}" class="button">Go to Dashboard</a>
+        </div>
+        
+        <p>If you have any questions about your new role or permissions, please reach out to your workspace admin.</p>
+        
+        <p>Best regards,<br/>
+        <strong>Social Media OS Team</strong></p>
+    </div>
+    
+    <div class="footer">
+        <p>If you can't click the button above, copy and paste this link into your browser:</p>
+        <p><a href="{{ dashboard_url }}">{{ dashboard_url }}</a></p>
+    </div>
+</body>
+</html>

@@ -42,6 +42,30 @@ def validate_request_security(request: Request) -> Dict[str, Any]:
     return security_info
 
 
+@router.options("/register")
+async def options_register():
+    """Handle CORS preflight for register endpoint"""
+    return Response(status_code=200)
+
+
+@router.options("/login")
+async def options_login():
+    """Handle CORS preflight for login endpoint"""
+    return Response(status_code=200)
+
+
+@router.options("/refresh")
+async def options_refresh():
+    """Handle CORS preflight for refresh endpoint"""
+    return Response(status_code=200)
+
+
+@router.options("/me")
+async def options_me():
+    """Handle CORS preflight for me endpoint"""
+    return Response(status_code=200)
+
+
 @router.post("/register", response_model=Token)
 async def register(
     register_data: RegisterRequest,

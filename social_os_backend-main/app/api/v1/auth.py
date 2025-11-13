@@ -174,10 +174,13 @@ async def login(
         role = "editor"
         if workspace_id:
             from app.models.workspace_member import WorkspaceMember
-            member = db.query(WorkspaceMember).filter(
-                WorkspaceMember.workspace_id == workspace_id,
-                WorkspaceMember.user_id == str(user.id)
-            ).first()
+            member_result = await db.execute(
+                select(WorkspaceMember).where(
+                    (WorkspaceMember.workspace_id == workspace_id) &
+                    (WorkspaceMember.user_id == str(user.id))
+                )
+            )
+            member = member_result.scalar_one_or_none()
             if member:
                 role = member.role.value if hasattr(member.role, 'value') else str(member.role)
         

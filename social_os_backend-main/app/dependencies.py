@@ -38,18 +38,18 @@ async def get_current_user(
     
     try:
         payload = decode_token(token)
-        user_id: str = payload.get("sub")
+        user_id: Optional[str] = payload.get("sub")
         
         if user_id is None:
             raise AuthenticationError("Invalid token: missing user ID")
         
         # Verify token type
-        token_type = payload.get("type")
+        token_type: Optional[str] = payload.get("type")
         if token_type != "access":
             raise AuthenticationError("Invalid token type")
         
         # Extract role from token (admin, editor, viewer)
-        role = payload.get("role")
+        role: Optional[str] = payload.get("role")
         
         # Return user info with role
         return {

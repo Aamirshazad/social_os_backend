@@ -185,8 +185,9 @@ async def health_check():
     # Check database connection
     try:
         from app.database import async_engine
+        from sqlalchemy import text
         async with async_engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
         health_status["services"]["database"] = "healthy"
     except Exception as e:
         health_status["services"]["database"] = f"connection_error: {str(e)}"
@@ -195,10 +196,16 @@ async def health_check():
     
     # Check Supabase connection
     try:
-        # Media service removed - functionality moved to platform services
-        # from app.services.media_service import media_service
-        # _ = media_service.supabase
-        health_status["services"]["supabase"] = "healthy"
+        from supabase import create_client
+        if (settings.SUPABASE_URL != "https://placeholder.supabase.co" and 
+            settings.SUPABASE_KEY != "placeholder-key"):
+            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+            # Test connection with a simple query
+            response = supabase.table("information_schema.tables").select("table_name").limit(1).execute()
+            health_status["services"]["supabase"] = "healthy"
+        else:
+            health_status["services"]["supabase"] = "configuration_error: placeholder values"
+            health_status["status"] = "degraded"
     except ValueError as e:
         # Configuration error (placeholder values)
         health_status["services"]["supabase"] = f"configuration_error: {str(e)}"

@@ -19,15 +19,26 @@ engine = create_engine(
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     pool_pre_ping=True,  # Enable connection health checks
+    pool_recycle=3600,  # Recycle connections every hour
+    connect_args={
+        "application_name": "social_media_ai_system",
+    },
     echo=settings.DEBUG,
 )
 
 # Create async engine
+async_database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
 async_engine = create_async_engine(
-    database_url.replace("postgresql://", "postgresql+asyncpg://"),
+    async_database_url,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     pool_pre_ping=True,
+    pool_recycle=3600,  # Recycle connections every hour
+    connect_args={
+        "server_settings": {
+            "application_name": "social_media_ai_system",
+        }
+    },
     echo=settings.DEBUG,
 )
 

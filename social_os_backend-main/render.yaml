@@ -31,9 +31,9 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: BACKEND_CORS_ORIGINS
-        value: "http://localhost:3000,https://localhost:3000,https://social-ms.vercel.app"
+        value: "http://localhost:3000,https://localhost:3000,https://social-os-frontend.vercel.app"
       - key: FRONTEND_URL
-        value: "https://social-ms.vercel.app"
+        value: "https://social-os-frontend.vercel.app"
       - key: CALLBACK_URL
         sync: false
     healthCheckPath: /health

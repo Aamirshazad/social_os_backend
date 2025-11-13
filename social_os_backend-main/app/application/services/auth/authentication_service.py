@@ -1,12 +1,11 @@
 """
-Authentication Service - User authentication operations
+Authentication Service - User authentication operations using Supabase
 """
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from supabase import create_client
 import structlog
 
-from app.models.user import User
+from app.config import settings
 from app.core.security import verify_password
 from app.core.exceptions import AuthenticationError
 
@@ -14,45 +13,50 @@ logger = structlog.get_logger()
 
 
 class AuthenticationService:
-    """Service for user authentication operations"""
+    """Service for user authentication operations using Supabase"""
+    
+    @staticmethod
+    def get_supabase():
+        """Get Supabase client instance"""
+        return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
     
     @staticmethod
     async def authenticate_user(
-        db: AsyncSession, 
         email: str, 
         password: str
-    ) -> User:
+    ):
         """
-        Authenticate user with email and password
+        Authenticate user with email and password using Supabase Auth
         
         Args:
-            db: Async database session
             email: User email
             password: User password
         
         Returns:
-            User object
+            User data from Supabase
         
         Raises:
             AuthenticationError: If credentials are invalid
         """
-        result = await db.execute(select(User).where(User.email == email))
-        user = result.scalar_one_or_none()
-        
-        if not user:
-            logger.warning("authentication_failed", email=email, reason="user_not_found")
+        try:
+            supabase = AuthenticationService.get_supabase()
+            
+            # Use Supabase auth to sign in
+            response = supabase.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+            
+            if response.user:
+                logger.info("user_authenticated", user_id=response.user.id, email=email)
+                return response.user
+            else:
+                logger.warning("authentication_failed", email=email, reason="invalid_credentials")
+                raise AuthenticationError("Invalid email or password")
+                
+        except Exception as e:
+            logger.warning("authentication_failed", email=email, error=str(e))
             raise AuthenticationError("Invalid email or password")
-        
-        if not verify_password(password, user.hashed_password):
-            logger.warning("authentication_failed", email=email, reason="invalid_password")
-            raise AuthenticationError("Invalid email or password")
-        
-        if not user.is_active:
-            logger.warning("authentication_failed", email=email, reason="inactive_account")
-            raise AuthenticationError("User account is inactive")
-        
-        logger.info("user_authenticated", user_id=str(user.id), email=email)
-        return user
     
     @staticmethod
     async def verify_user_credentials(

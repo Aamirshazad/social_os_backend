@@ -105,8 +105,7 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     login_data: LoginRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Login endpoint
@@ -117,16 +116,14 @@ async def login(
         # Validate request security
         security_info = validate_request_security(request)
         
-        # Authenticate user
+        # Authenticate user using Supabase
         user = await AuthenticationService.authenticate_user(
-            db=db,
             email=login_data.email,
             password=login_data.password
         )
         
-        # Get user's workspace
-        workspaces = await WorkspaceService.get_user_workspaces_async(db, str(user.id))
-        workspace_id = str(workspaces[0].id) if workspaces else None
+        # For now, use a default workspace (can be enhanced later with Supabase)
+        workspace_id = None
         
         # Create tokens
         tokens = TokenService.create_tokens(user, workspace_id)

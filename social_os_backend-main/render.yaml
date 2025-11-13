@@ -20,20 +20,14 @@ services:
         value: 0.0.0.0
       - key: PORT
         sync: false
-      - key: DATABASE_URL
-        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
       - key: BACKEND_CORS_ORIGINS
         value: "http://localhost:3000,https://localhost:3000,https://social-os-frontend.vercel.app"
       - key: FRONTEND_URL
         value: "https://social-os-frontend.vercel.app"
-      - key: CALLBACK_URL
-        sync: false
     healthCheckPath: /health

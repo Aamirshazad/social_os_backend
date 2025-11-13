@@ -26,22 +26,31 @@ logger.info(
     "database_configuration",
     database_configured=True,
     message="Using SUPABASE_URL and SUPABASE_KEY from environment",
-    project_ref=project_ref
+    project_ref=project_ref,
+    database_url_env_set=bool(os.getenv("DATABASE_URL")),
+    service_role_key_set=bool(os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 )
 
 # Create Supabase client for API operations
 supabase_client = create_client(supabase_url, supabase_key)
 
-# For direct database access, construct async PostgreSQL connection string
-# Using the service role key as password (from Supabase settings)
-service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-if service_role_key:
-    # Use service role key as the database password (remove sslmode from URL)
-    async_database_url = f"postgresql+asyncpg://postgres:{service_role_key}@db.{project_ref}.supabase.co:5432/postgres"
+# Since we're using Supabase for authentication only, we'll use a simple in-memory database for local models
+# In production, you might want to use Supabase database or another PostgreSQL instance
+database_url = os.getenv("DATABASE_URL")
+
+if database_url:
+    # Use provided DATABASE_URL if available
+    if database_url.startswith("postgresql://"):
+        async_database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgres://"):
+        async_database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    else:
+        async_database_url = database_url
+    logger.info("using_database_url_from_environment", url_configured=True)
 else:
-    # Fallback: construct a basic connection (will fail if service role key not set)
-    async_database_url = f"postgresql+asyncpg://postgres:@db.{project_ref}.supabase.co:5432/postgres"
-    logger.warning("SUPABASE_SERVICE_ROLE_KEY not configured, direct database access may fail")
+    # Use SQLite for local development/testing when no DATABASE_URL is provided
+    async_database_url = "sqlite+aiosqlite:///./social_media_ai.db"
+    logger.info("using_sqlite_fallback", message="No DATABASE_URL provided, using SQLite")
 
 # Create async engine only (FastAPI is async)
 async_engine = create_async_engine(
@@ -75,11 +84,15 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     Dependency function to get async database session
     Yields an async database session and ensures it's closed after use
     """
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    try:
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+            finally:
+                await session.close()
+    except Exception as e:
+        logger.error("database_session_creation_failed", error=str(e), error_type=type(e).__name__)
+        raise
 
 
 async def init_async_db():

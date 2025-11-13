@@ -7,10 +7,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 
 from app.database import get_db
-from app.dependencies import get_current_active_user, get_workspace_id
-# TODO: InviteService and ActivityService need to be implemented in new structure
-# from app.services.invite_service import InviteService
-# from app.services.activity_service import ActivityService
+from app.dependencies import get_current_active_user, get_workspace_id, require_role
+from app.models.workspace_invite import WorkspaceInvite
 import structlog
 
 logger = structlog.get_logger()
@@ -43,7 +41,7 @@ class InviteResponse(BaseModel):
 async def get_invites(
     include_expired: bool = Query(False),
     workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_role("admin")),  # ✅ REQUIRE ADMIN ROLE
     db: Session = Depends(get_db)
 ):
     """
@@ -51,32 +49,49 @@ async def get_invites(
     
     Requires admin role
     """
-    invites = InviteService.get_workspace_invites(
-        db=db,
-        workspace_id=workspace_id,
-        include_expired=include_expired
-    )
-    
-    # Add invite URL to each
-    from app.config import settings
-    base_url = settings.FRONTEND_URL
-    
-    return [
-        {
-            **invite.__dict__,
-            "expires_at": invite.expires_at.isoformat(),
-            "created_at": invite.created_at.isoformat(),
-            "invite_url": f"{base_url}/invite/{invite.token}"
-        }
-        for invite in invites
-    ]
+    try:
+        # Query invites from database
+        query = db.query(WorkspaceInvite).filter(
+            WorkspaceInvite.workspace_id == workspace_id
+        )
+        
+        # Filter out expired invites if requested
+        if not include_expired:
+            from datetime import datetime
+            query = query.filter(WorkspaceInvite.expires_at > datetime.utcnow())
+        
+        invites = query.order_by(WorkspaceInvite.created_at.desc()).all()
+        
+        # Add invite URL to each
+        from app.config import settings
+        base_url = settings.FRONTEND_URL
+        
+        return [
+            {
+                "id": str(invite.id),
+                "email": invite.email,
+                "token": invite.token,
+                "role": invite.role,
+                "invited_by": str(invite.invited_by),
+                "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
+                "created_at": invite.created_at.isoformat(),
+                "invite_url": f"{base_url}/invite/{invite.token}"
+            }
+            for invite in invites
+        ]
+    except Exception as e:
+        logger.error("get_invites_error", error=str(e), workspace_id=workspace_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve invites"
+        )
 
 
 @router.post("", response_model=InviteResponse, status_code=201)
 async def create_invite(
     request: CreateInviteRequest,
     workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    current_user: dict = Depends(require_role("admin")),  # ✅ REQUIRE ADMIN ROLE
     db: Session = Depends(get_db)
 ):
     """
@@ -84,36 +99,41 @@ async def create_invite(
     
     Requires admin role
     """
-    invite = InviteService.create_invite(
-        db=db,
-        workspace_id=workspace_id,
-        invited_by=current_user["id"],
-        role=request.role,
-        email=request.email,
-        expires_in_days=request.expires_in_days
-    )
-    
-    # Log activity
-    ActivityService.log_activity(
-        db=db,
-        workspace_id=workspace_id,
-        user_id=current_user["id"],
-        action="invite_created",
-        entity_type="invite",
-        entity_id=str(invite.id),
-        details={"role": request.role, "email": request.email}
-    )
-    
-    logger.info("invite_created", invite_id=str(invite.id))
-    
-    from app.config import settings
-    
-    return {
-        **invite.__dict__,
-        "expires_at": invite.expires_at.isoformat(),
-        "created_at": invite.created_at.isoformat(),
-        "invite_url": f"{settings.FRONTEND_URL}/invite/{invite.token}"
-    }
+    try:
+        from app.config import settings
+        
+        # Create invite
+        invite = WorkspaceInvite(
+            workspace_id=workspace_id,
+            email=request.email,
+            token=WorkspaceInvite.generate_token(),
+            role=request.role,
+            invited_by=current_user["id"],
+            expires_at=WorkspaceInvite.calculate_expiry(request.expires_in_days)
+        )
+        
+        db.add(invite)
+        db.commit()
+        db.refresh(invite)
+        
+        logger.info("invite_created", invite_id=str(invite.id), email=request.email, role=request.role)
+        
+        return {
+            "id": str(invite.id),
+            "email": invite.email,
+            "token": invite.token,
+            "role": invite.role,
+            "invited_by": str(invite.invited_by),
+            "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
+            "created_at": invite.created_at.isoformat(),
+            "invite_url": f"{settings.FRONTEND_URL}/invite/{invite.token}"
+        }
+    except Exception as e:
+        logger.error("create_invite_error", error=str(e), workspace_id=workspace_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create invitation"
+        )
 
 
 @router.post("/{token}/accept")

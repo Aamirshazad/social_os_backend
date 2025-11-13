@@ -6,11 +6,22 @@ from pydantic import BaseModel, EmailStr, Field, validator
 import re
 
 
+class UserInfo(BaseModel):
+    """User information in token response"""
+    id: str
+    email: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
 class Token(BaseModel):
-    """JWT token response"""
+    """JWT token response with user info"""
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    user: UserInfo
+    workspace_id: Optional[str] = None
+    role: Optional[str] = None  # admin, editor, viewer
 
 
 class TokenData(BaseModel):
@@ -18,6 +29,7 @@ class TokenData(BaseModel):
     sub: str  # user_id
     email: Optional[str] = None
     workspace_id: Optional[str] = None
+    role: Optional[str] = None  # admin, editor, viewer
 
 
 class RegisterRequest(BaseModel):

@@ -29,7 +29,7 @@ async def get_current_user(
         db: Database session
     
     Returns:
-        User information from token
+        User information from token including role
     
     Raises:
         AuthenticationError: If token is invalid or user not found
@@ -48,12 +48,15 @@ async def get_current_user(
         if token_type != "access":
             raise AuthenticationError("Invalid token type")
         
-        # Here you would typically fetch the user from the database
-        # For now, return the payload
+        # Extract role from token (admin, editor, viewer)
+        role = payload.get("role")
+        
+        # Return user info with role
         return {
             "id": user_id,
             "email": payload.get("email"),
             "workspace_id": payload.get("workspace_id"),
+            "role": role,
         }
         
     except AuthenticationError:
@@ -112,18 +115,33 @@ def require_role(*required_roles: str):
     Dependency to require specific roles
     
     Args:
-        required_roles: List of required roles
+        required_roles: List of required roles (admin, editor, viewer)
     
     Returns:
-        Dependency function
+        Dependency function that validates user role
     """
     async def role_checker(current_user: dict = Depends(get_current_active_user)):
-        user_role = current_user.get("role", "user")
-        if user_role not in required_roles:
+        user_role = current_user.get("role")
+        
+        if not user_role:
+            logger.warning("role_check_failed", reason="no_role_in_token", user_id=current_user.get("id"))
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions"
+                detail="User role not found in token"
             )
+        
+        if user_role not in required_roles:
+            logger.warning(
+                "role_check_failed",
+                user_role=user_role,
+                required_roles=required_roles,
+                user_id=current_user.get("id")
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions. Required roles: {', '.join(required_roles)}"
+            )
+        
         return current_user
     
     return role_checker

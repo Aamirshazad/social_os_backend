@@ -10,6 +10,8 @@ import uvicorn
 from app.config import settings
 from app.api.v1 import api_router
 from app.core.exceptions import APIException
+from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.startup_validation import validate_environment
 import structlog
 
 # Configure structured logging
@@ -38,42 +40,30 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="AI-powered social media management system backend",
-    docs_url="/docs",  # Always enable docs for development
-    redoc_url="/redoc",  # Always enable redoc for development
-    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
+    docs_url="/docs" if settings.DEBUG else None,  # Only enable docs in debug mode
+    redoc_url="/redoc" if settings.DEBUG else None,  # Only enable redoc in debug mode
+    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json" if settings.DEBUG else None,
 )
 
-# Add CORS middleware - Enhanced configuration for production
-cors_origins = [
-    "https://social-os-frontend.vercel.app",
-    "https://social-os-frontend.vercel.app/",  # Handle trailing slash
-    "http://localhost:3000",
-    "https://localhost:3000",
-    "*"  # Allow all origins for debugging - remove in production
-]
+# Add CORS middleware - Production-ready configuration
+cors_origins = settings.get_cors_origins()
 
-# Override with environment variable if provided
-if hasattr(settings, 'BACKEND_CORS_ORIGINS_RAW') and settings.BACKEND_CORS_ORIGINS_RAW:
-    try:
-        import json
-        if settings.BACKEND_CORS_ORIGINS_RAW.startswith('['):
-            cors_origins = json.loads(settings.BACKEND_CORS_ORIGINS_RAW)
-        else:
-            cors_origins = [origin.strip() for origin in settings.BACKEND_CORS_ORIGINS_RAW.split(',') if origin.strip()]
-    except:
-        pass  # Use default origins if parsing fails
-
-# Log CORS configuration for debugging
-logger.info("cors_configuration", origins=cors_origins)
+# Log CORS configuration for debugging (only in debug mode)
+if settings.DEBUG:
+    logger.info("cors_configuration", origins=cors_origins)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for debugging
-    allow_credentials=False,  # Disable credentials when using wildcard
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
-    allow_headers=["*"],  # Allow all headers
-    expose_headers=["*"]
+    allow_origins=cors_origins,  # Use specific origins from settings
+    allow_credentials=True,  # Allow credentials for authentication
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],  # Only allow necessary headers
+    expose_headers=["Content-Type", "Authorization"],
+    max_age=3600  # Cache CORS preflight for 1 hour
 )
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Add GZip middleware for response compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -82,22 +72,26 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Request logging middleware
 @app.middleware("http")
 async def log_requests(request, call_next):
-    """Log all incoming requests for debugging"""
-    logger.info(
-        "incoming_request",
-        method=request.method,
-        url=str(request.url),
-        headers=dict(request.headers),
-        client=request.client.host if request.client else None
-    )
+    """Log all incoming requests for debugging (without sensitive data)"""
+    if settings.DEBUG:
+        # Only log in debug mode to avoid exposing sensitive information
+        safe_headers = {k: v for k, v in request.headers.items() 
+                       if k.lower() not in ['authorization', 'cookie', 'x-api-key']}
+        logger.info(
+            "incoming_request",
+            method=request.method,
+            url=str(request.url),
+            client=request.client.host if request.client else None
+        )
     
     response = await call_next(request)
     
-    logger.info(
-        "response_sent",
-        status_code=response.status_code,
-        headers=dict(response.headers)
-    )
+    if settings.DEBUG:
+        logger.info(
+            "response_sent",
+            status_code=response.status_code,
+            url=str(request.url)
+        )
     
     return response
 
@@ -159,6 +153,14 @@ async def general_exception_handler(request, exc: Exception):
 async def startup_event():
     """Initialize resources on startup"""
     logger.info("application_startup", environment=settings.ENVIRONMENT)
+    
+    # Validate environment configuration
+    try:
+        validate_environment()
+    except ValueError as e:
+        logger.error("startup_validation_error", error=str(e))
+        raise
+    
     # Initialize database connections, cache, etc.
 
 

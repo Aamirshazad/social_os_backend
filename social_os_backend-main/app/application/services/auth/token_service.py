@@ -16,40 +16,37 @@ class TokenService:
     """Service for JWT token operations"""
     
     @staticmethod
-    def create_tokens(user, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+    def create_tokens(user, workspace_id: Optional[str] = None, role: Optional[str] = None) -> Dict[str, Any]:
         """
         Create access and refresh tokens for user
         
         Args:
             user: User object (can be Supabase user or SQLAlchemy User)
             workspace_id: Optional workspace ID
+            role: User's role in workspace (admin, editor, viewer)
         
         Returns:
-            Dictionary containing tokens
+            Dictionary containing tokens and user info
         """
         # Handle both Supabase user objects and SQLAlchemy User objects
-        # Log user object for debugging
-        logger.info("token_creation_debug", 
-                   user_type=type(user).__name__,
-                   user_attributes=dir(user) if hasattr(user, '__dict__') else "no_dict",
-                   user_dict=getattr(user, '__dict__', None))
-        
         user_id = getattr(user, 'id', None) or getattr(user, 'user_id', None)
         user_email = getattr(user, 'email', None)
-        
-        logger.info("extracted_user_data", user_id=user_id, user_email=user_email)
+        user_full_name = getattr(user, 'full_name', None)
+        user_avatar = getattr(user, 'avatar_url', None)
         
         if not user_id:
             logger.error("no_user_id_found", user_object=str(user))
             raise ValueError("User ID not found in user object")
         
+        # Create token payload with role
         token_data = {
             "sub": str(user_id),
             "email": user_email,
-            "workspace_id": workspace_id
+            "workspace_id": workspace_id,
+            "role": role
         }
         
-        logger.info("token_data_created", token_data=token_data)
+        logger.info("token_data_created", user_id=str(user_id), role=role, workspace_id=workspace_id)
         
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
@@ -59,7 +56,15 @@ class TokenService:
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
-            "token_type": "bearer"
+            "token_type": "bearer",
+            "user": {
+                "id": str(user_id),
+                "email": user_email,
+                "full_name": user_full_name,
+                "avatar_url": user_avatar
+            },
+            "workspace_id": workspace_id,
+            "role": role
         }
     
     @staticmethod
@@ -92,7 +97,7 @@ class TokenService:
             refresh_token: Refresh token string
         
         Returns:
-            New token pair
+            New token pair with role
         
         Raises:
             AuthenticationError: If refresh token is invalid
@@ -104,17 +109,18 @@ class TokenService:
             if payload.get("type") != "refresh":
                 raise AuthenticationError("Invalid token type")
             
-            # Create new tokens
+            # Create new tokens with role
             token_data = {
                 "sub": payload.get("sub"),
                 "email": payload.get("email"),
-                "workspace_id": payload.get("workspace_id")
+                "workspace_id": payload.get("workspace_id"),
+                "role": payload.get("role")
             }
             
             access_token = create_access_token(token_data)
             new_refresh_token = create_refresh_token(token_data)
             
-            logger.info("tokens_refreshed", user_id=payload.get("sub"))
+            logger.info("tokens_refreshed", user_id=payload.get("sub"), role=payload.get("role"))
             
             return {
                 "access_token": access_token,

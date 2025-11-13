@@ -51,7 +51,7 @@ async def register(
     """
     Register a new user
     
-    Creates user account and returns JWT tokens
+    Creates user account and returns JWT tokens with role
     """
     try:
         # Validate request security
@@ -69,10 +69,21 @@ async def register(
         workspaces = await WorkspaceService.get_user_workspaces_async(db, str(user.id))
         workspace_id = str(workspaces[0].id) if workspaces else None
         
-        # Create tokens
-        tokens = TokenService.create_tokens(user, workspace_id)
+        # Get user's role in workspace (new users are typically editors)
+        role = "editor"
+        if workspace_id:
+            from app.models.workspace_member import WorkspaceMember
+            member = db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == str(user.id)
+            ).first()
+            if member:
+                role = member.role.value if hasattr(member.role, 'value') else str(member.role)
         
-        logger.info("user_registered", email=register_data.email, user_id=str(user.id), **security_info)
+        # Create tokens with role
+        tokens = TokenService.create_tokens(user, workspace_id, role)
+        
+        logger.info("user_registered", email=register_data.email, user_id=str(user.id), role=role, **security_info)
         
         return tokens
         
@@ -105,12 +116,13 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     login_data: LoginRequest,
-    request: Request
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Login endpoint
     
-    Authenticates user and returns JWT tokens
+    Authenticates user and returns JWT tokens with role
     """
     try:
         # Validate request security
@@ -122,13 +134,25 @@ async def login(
             password=login_data.password
         )
         
-        # For now, use a default workspace (can be enhanced later with Supabase)
-        workspace_id = None
+        # Get user's workspace and role
+        workspaces = await WorkspaceService.get_user_workspaces_async(db, str(user.id))
+        workspace_id = str(workspaces[0].id) if workspaces else None
         
-        # Create tokens
-        tokens = TokenService.create_tokens(user, workspace_id)
+        # Get user's role in workspace (default to editor if no specific role)
+        role = "editor"
+        if workspace_id:
+            from app.models.workspace_member import WorkspaceMember
+            member = db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == str(user.id)
+            ).first()
+            if member:
+                role = member.role.value if hasattr(member.role, 'value') else str(member.role)
         
-        logger.info("user_logged_in", email=login_data.email, user_id=str(user.id), **security_info)
+        # Create tokens with role
+        tokens = TokenService.create_tokens(user, workspace_id, role)
+        
+        logger.info("user_logged_in", email=login_data.email, user_id=str(user.id), role=role, **security_info)
         
         return tokens
         
@@ -166,6 +190,8 @@ async def refresh_token(
 ):
     """
     Refresh access token using refresh token
+    
+    Returns new tokens with updated role information
     """
     try:
         # Validate request security
@@ -178,22 +204,32 @@ async def refresh_token(
         if payload.get("type") != "refresh":
             raise AuthenticationError("Invalid token type")
         
-        # Create new tokens
+        # Create new tokens with role preserved
         token_data = {
             "sub": payload.get("sub"),
             "email": payload.get("email"),
-            "workspace_id": payload.get("workspace_id")
+            "workspace_id": payload.get("workspace_id"),
+            "role": payload.get("role")  # ✅ INCLUDE ROLE
         }
         
         access_token = create_access_token(token_data)
         new_refresh_token = create_refresh_token(token_data)
         
-        logger.info("token_refreshed", user_id=payload.get("sub"), **security_info)
+        logger.info("token_refreshed", user_id=payload.get("sub"), role=payload.get("role"), **security_info)
         
+        # Return complete response matching Token schema
         return {
             "access_token": access_token,
             "refresh_token": new_refresh_token,
-            "token_type": "bearer"
+            "token_type": "bearer",
+            "user": {
+                "id": payload.get("sub"),
+                "email": payload.get("email"),
+                "full_name": None,  # Not available in refresh token
+                "avatar_url": None
+            },
+            "workspace_id": payload.get("workspace_id"),
+            "role": payload.get("role")  # ✅ INCLUDE ROLE
         }
         
     except AuthenticationError as e:
@@ -266,11 +302,13 @@ async def get_current_user(request: Request):
         # Log full payload for debugging
         logger.info("token_payload_debug", payload=payload)
         
-        # For now, return user info from JWT payload since we're using Supabase auth
+        # Return user info from JWT payload since we're using Supabase auth
         user_id = payload.get("sub") or payload.get("user_id")
         user_email = payload.get("email")
+        role = payload.get("role")
+        workspace_id = payload.get("workspace_id")
         
-        logger.info("extracted_user_info", user_id=user_id, user_email=user_email)
+        logger.info("extracted_user_info", user_id=user_id, user_email=user_email, role=role)
         
         if not user_id:
             logger.error("missing_user_id_in_token", payload=payload)
@@ -285,11 +323,13 @@ async def get_current_user(request: Request):
         user_response = {
             "id": user_id,
             "email": user_email,
+            "role": role,  # ✅ INCLUDE ROLE
+            "workspace_id": workspace_id,  # ✅ INCLUDE WORKSPACE_ID
             "created_at": payload.get("iat"),
             "updated_at": payload.get("iat")
         }
         
-        logger.info("me_endpoint_success", user_id=user_id)
+        logger.info("me_endpoint_success", user_id=user_id, role=role)
         return user_response
         
     except HTTPException:

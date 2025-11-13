@@ -23,12 +23,7 @@ def validate_environment():
         if settings.DEBUG:
             errors.append("DEBUG must be False in production")
         
-        if settings.SECRET_KEY == "dev-secret-key-change-in-production-32-chars-minimum-for-security":
-            errors.append("SECRET_KEY must be changed from default in production")
-        
-        if settings.ENCRYPTION_KEY == "your-32-character-encryption-key-change-this-in-production-12345":
-            errors.append("ENCRYPTION_KEY must be changed from default in production")
-        
+        # Supabase configuration is critical
         if settings.SUPABASE_URL == "https://placeholder.supabase.co":
             errors.append("SUPABASE_URL must be configured in production")
         

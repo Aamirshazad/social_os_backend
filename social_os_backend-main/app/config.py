@@ -4,6 +4,8 @@ Application configuration using Pydantic Settings
 from typing import List, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
+import secrets
+import os
 
 
 class Settings(BaseSettings):
@@ -93,7 +95,7 @@ class Settings(BaseSettings):
         return self.DATABASE_URL
     
     # JWT
-    SECRET_KEY: str = "a7f8e3c9d2b4a1f6e8c5d9b3a7f4e2c8d6b9a3f7e1c4d8b2a6f3e9c7d5b1a4f2"
+    SECRET_KEY: str = Field(default_factory=lambda: os.getenv("SECRET_KEY") or "dev-secret-key-change-in-production-32-chars-minimum-for-security")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -146,7 +148,7 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: Optional[str] = None
     
     # Encryption
-    ENCRYPTION_KEY: str = Field(default="your-32-character-encryption-key-change-this-in-production-12345")
+    ENCRYPTION_KEY: str = Field(default_factory=lambda: os.getenv("ENCRYPTION_KEY") or "your-32-character-encryption-key-change-this-in-production-12345")
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60

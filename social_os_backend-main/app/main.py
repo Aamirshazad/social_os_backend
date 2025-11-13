@@ -43,7 +43,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
 )
 
-# Add CORS middleware - Simplified configuration for production
+# Add CORS middleware - Enhanced configuration for production
 cors_origins = [
     "https://social-os-frontend.vercel.app",
     "http://localhost:3000",
@@ -61,17 +61,53 @@ if hasattr(settings, 'BACKEND_CORS_ORIGINS_RAW') and settings.BACKEND_CORS_ORIGI
     except:
         pass  # Use default origins if parsing fails
 
+# Log CORS configuration for debugging
+logger.info("cors_configuration", origins=cors_origins)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
     expose_headers=["*"]
 )
 
 # Add GZip middleware for response compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request, call_next):
+    """Log all incoming requests for debugging"""
+    logger.info(
+        "incoming_request",
+        method=request.method,
+        url=str(request.url),
+        headers=dict(request.headers),
+        client=request.client.host if request.client else None
+    )
+    
+    response = await call_next(request)
+    
+    logger.info(
+        "response_sent",
+        status_code=response.status_code,
+        headers=dict(response.headers)
+    )
+    
+    return response
 
 
 # Exception handlers
@@ -189,6 +225,14 @@ async def config_check():
     return config_status
 
 
+# Global OPTIONS handler for preflight requests
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    """Global OPTIONS handler for preflight requests"""
+    logger.info("preflight_request", path=path)
+    return {"message": "OK"}
+
+
 # CORS test endpoint
 @app.get("/cors-test")
 async def cors_test():
@@ -206,6 +250,13 @@ async def cors_test_post():
 async def cors_test_options():
     """CORS preflight test endpoint"""
     return {"message": "CORS OPTIONS test successful"}
+
+
+# Test endpoint that mimics the auth/login structure
+@app.post("/test-login")
+async def test_login():
+    """Test endpoint to verify CORS is working for POST requests"""
+    return {"message": "Test login endpoint working", "cors": "success"}
 
 
 # Include API router

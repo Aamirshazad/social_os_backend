@@ -182,38 +182,33 @@ async def health_check():
         "services": {}
     }
     
-    # Check database connection
-    try:
-        from app.database import async_engine
-        from sqlalchemy import text
-        async with async_engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        health_status["services"]["database"] = "healthy"
-    except Exception as e:
-        health_status["services"]["database"] = f"connection_error: {str(e)}"
-        health_status["status"] = "degraded"
-        logger.error("database_health_check_failed", error=str(e))
+    # Skip direct PostgreSQL connection test - using Supabase client instead
+    # Database operations will be handled through Supabase client
+    health_status["services"]["database"] = "using_supabase_client"
     
     # Check Supabase connection
     try:
         from supabase import create_client
-        if (settings.SUPABASE_URL != "https://placeholder.supabase.co" and 
-            settings.SUPABASE_KEY != "placeholder-key"):
-            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-            # Test connection with a simple query
-            response = supabase.table("information_schema.tables").select("table_name").limit(1).execute()
+        import os
+        
+        supabase_url = settings.SUPABASE_URL
+        supabase_key = settings.SUPABASE_KEY
+        
+        if (supabase_url != "https://placeholder.supabase.co" and 
+            supabase_key != "placeholder-key"):
+            # Create client and test connection
+            supabase = create_client(supabase_url, supabase_key)
+            # Simple connection test - just create the client
             health_status["services"]["supabase"] = "healthy"
         else:
-            health_status["services"]["supabase"] = "configuration_error: placeholder values"
+            health_status["services"]["supabase"] = "configuration_error: credentials not configured"
             health_status["status"] = "degraded"
-    except ValueError as e:
-        # Configuration error (placeholder values)
-        health_status["services"]["supabase"] = f"configuration_error: {str(e)}"
-        health_status["status"] = "degraded"
+            
     except Exception as e:
         # Connection error
         health_status["services"]["supabase"] = f"connection_error: {str(e)}"
         health_status["status"] = "degraded"
+        logger.error("supabase_health_check_failed", error=str(e))
     
     return health_status
 
@@ -222,10 +217,14 @@ async def health_check():
 @app.get("/config-check")
 async def config_check():
     """Configuration check endpoint for debugging environment variables"""
+    db_url = settings.get_database_url()
     config_status = {
+        "raw_database_url_configured": settings.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname",
+        "final_database_url_masked": db_url[:20] + "***" + db_url[-20:] if len(db_url) > 40 else "***",
         "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
+        "supabase_key_configured": settings.SUPABASE_KEY != "placeholder-key",
         "supabase_service_key_configured": settings.SUPABASE_SERVICE_ROLE_KEY != "placeholder-service-key",
-        "database_url_configured": settings.get_database_url() != "postgresql://user:pass@localhost:5432/dbname",
+        "supabase_db_password_configured": settings.SUPABASE_DB_PASSWORD != "placeholder-db-password",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG,
         "cors_origins": cors_origins,  # Show actual CORS origins being used

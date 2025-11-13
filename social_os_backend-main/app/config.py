@@ -84,19 +84,13 @@ class Settings(BaseSettings):
     DATABASE_MAX_OVERFLOW: int = 10
     
     def get_database_url(self) -> str:
-        """Get database URL, fallback to Supabase if DATABASE_URL is default"""
+        """Get database URL - simplified for Supabase usage"""
+        # For Supabase, we primarily use the Supabase client, not direct PostgreSQL connections
+        # Only return DATABASE_URL if explicitly set, otherwise return default
         if self.DATABASE_URL != "postgresql://user:pass@localhost:5432/dbname":
             return self.DATABASE_URL
         
-        # If DATABASE_URL is default, try to construct from Supabase settings
-        if (self.SUPABASE_URL != "https://placeholder.supabase.co" and 
-            self.SUPABASE_DB_PASSWORD != "placeholder-db-password"):
-            # Extract project reference from Supabase URL
-            # https://abcdefgh.supabase.co -> abcdefgh
-            project_ref = self.SUPABASE_URL.replace("https://", "").replace(".supabase.co", "")
-            # Use database password for connection
-            return f"postgresql://postgres:{self.SUPABASE_DB_PASSWORD}@db.{project_ref}.supabase.co:5432/postgres"
-        
+        # Return default - most operations will use Supabase client instead
         return self.DATABASE_URL
     
     # JWT

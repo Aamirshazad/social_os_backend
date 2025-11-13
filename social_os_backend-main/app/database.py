@@ -22,6 +22,7 @@ engine = create_engine(
     pool_recycle=3600,  # Recycle connections every hour
     connect_args={
         "application_name": "social_media_ai_system",
+        "sslmode": "require",
     },
     echo=settings.DEBUG,
 )
@@ -37,7 +38,8 @@ async_engine = create_async_engine(
     connect_args={
         "server_settings": {
             "application_name": "social_media_ai_system",
-        }
+        },
+        "ssl": "require",
     },
     echo=settings.DEBUG,
 )

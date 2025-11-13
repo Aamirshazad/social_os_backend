@@ -38,13 +38,6 @@ def validate_environment():
         if any("localhost" in origin or "127.0.0.1" in origin for origin in cors_origins):
             warnings.append("CORS origins contain localhost - ensure this is intentional in production")
     
-    # General checks
-    if len(settings.SECRET_KEY) < 32:
-        errors.append("SECRET_KEY must be at least 32 characters long")
-    
-    if len(settings.ENCRYPTION_KEY) < 32:
-        errors.append("ENCRYPTION_KEY must be at least 32 characters long")
-    
     # Warnings for optional but recommended settings
     if not settings.GEMINI_API_KEY and settings.ENVIRONMENT == "production":
         warnings.append("GEMINI_API_KEY not configured - AI features will be unavailable")

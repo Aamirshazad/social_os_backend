@@ -28,8 +28,20 @@ class TokenService:
             Dictionary containing tokens
         """
         # Handle both Supabase user objects and SQLAlchemy User objects
+        # Log user object for debugging
+        logger.info("token_creation_debug", 
+                   user_type=type(user).__name__,
+                   user_attributes=dir(user) if hasattr(user, '__dict__') else "no_dict",
+                   user_dict=getattr(user, '__dict__', None))
+        
         user_id = getattr(user, 'id', None) or getattr(user, 'user_id', None)
         user_email = getattr(user, 'email', None)
+        
+        logger.info("extracted_user_data", user_id=user_id, user_email=user_email)
+        
+        if not user_id:
+            logger.error("no_user_id_found", user_object=str(user))
+            raise ValueError("User ID not found in user object")
         
         token_data = {
             "sub": str(user_id),
@@ -37,10 +49,12 @@ class TokenService:
             "workspace_id": workspace_id
         }
         
+        logger.info("token_data_created", token_data=token_data)
+        
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
-        logger.info("tokens_created", user_id=str(user_id))
+        logger.info("tokens_created", user_id=str(user_id), token_length=len(access_token) if access_token else 0)
         
         return {
             "access_token": access_token,

@@ -94,7 +94,7 @@ class Settings(BaseSettings):
         return self.DATABASE_URL
     
     # JWT
-    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    SECRET_KEY: str = Field(default="dev-secret-key-change-in-production-32-chars-minimum-for-security")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

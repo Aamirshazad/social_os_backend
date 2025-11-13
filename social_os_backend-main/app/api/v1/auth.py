@@ -250,20 +250,21 @@ async def get_current_user(request: Request):
                 detail="Invalid or expired token"
             )
         
-        # Get user from Supabase
-        user = await AuthenticationService.verify_user_credentials(payload.get("sub"))
+        # For now, return user info from JWT payload since we're using Supabase auth
+        user_id = payload.get("sub")
+        user_email = payload.get("email")
         
-        if not user:
+        if not user_id or not user_email:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found"
+                detail="Invalid token payload"
             )
         
         return {
-            "id": user.id,
-            "email": user.email,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at
+            "id": user_id,
+            "email": user_email,
+            "created_at": payload.get("iat"),
+            "updated_at": payload.get("iat")
         }
         
     except HTTPException:

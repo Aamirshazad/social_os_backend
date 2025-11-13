@@ -1,7 +1,7 @@
 """
 FastAPI Application Entry Point
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -228,10 +228,19 @@ async def config_check():
 
 # Global OPTIONS handler for preflight requests
 @app.options("/{path:path}")
-async def options_handler(path: str):
+async def options_handler(path: str, request: Request):
     """Global OPTIONS handler for preflight requests"""
-    logger.info("preflight_request", path=path)
-    return {"message": "OK"}
+    logger.info("preflight_request", path=path, headers=dict(request.headers))
+    
+    # Return proper CORS headers for preflight
+    from fastapi.responses import Response
+    response = Response(status_code=200)
+    response.headers["Access-Control-Allow-Origin"] = "https://social-os-frontend.vercel.app"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+    response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
 
 
 # CORS test endpoint
@@ -258,6 +267,22 @@ async def cors_test_options():
 async def test_login():
     """Test endpoint to verify CORS is working for POST requests"""
     return {"message": "Test login endpoint working", "cors": "success"}
+
+
+# Specific OPTIONS handler for auth endpoints
+@app.options("/api/v1/auth/{path:path}")
+async def auth_options_handler(path: str, request: Request):
+    """Specific OPTIONS handler for auth endpoints"""
+    logger.info("auth_preflight_request", path=path, headers=dict(request.headers))
+    
+    from fastapi.responses import Response
+    response = Response(status_code=200)
+    response.headers["Access-Control-Allow-Origin"] = "https://social-os-frontend.vercel.app"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+    response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
 
 
 # Include API router

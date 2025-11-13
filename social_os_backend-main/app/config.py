@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # CORS - Use a simple string field and parse it after initialization
     CORS_ORIGINS_STRING: str = "https://social-os-frontend.vercel.app"
     
+    # Handle BACKEND_CORS_ORIGINS environment variable safely
+    BACKEND_CORS_ORIGINS_RAW: Optional[str] = Field(default=None, alias="BACKEND_CORS_ORIGINS")
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Parse CORS origins after initialization to avoid Pydantic issues
@@ -31,9 +34,8 @@ class Settings(BaseSettings):
     
     def _parse_cors_origins(self):
         """Parse CORS origins from environment or default string"""
-        import os
-        # Check environment variable first (using a different name to avoid conflicts)
-        env_value = os.getenv('CORS_ALLOWED_ORIGINS') or os.getenv('BACKEND_CORS_ORIGINS')
+        # Use the captured raw value or fall back to default
+        env_value = self.BACKEND_CORS_ORIGINS_RAW
         if env_value:
             cors_string = env_value
         else:
@@ -41,7 +43,22 @@ class Settings(BaseSettings):
             
         # Parse the string into a list and store in __dict__ to bypass Pydantic restrictions
         if isinstance(cors_string, str) and cors_string.strip():
-            self.__dict__['_cors_origins_list'] = [i.strip() for i in cors_string.split(",") if i.strip()]
+            # Handle both comma-separated and JSON array formats safely
+            try:
+                # Try JSON parsing first
+                import json
+                if cors_string.startswith('[') and cors_string.endswith(']'):
+                    parsed_origins = json.loads(cors_string)
+                    if isinstance(parsed_origins, list):
+                        self.__dict__['_cors_origins_list'] = [str(origin).strip() for origin in parsed_origins if str(origin).strip()]
+                    else:
+                        raise ValueError("Not a list")
+                else:
+                    # Fall back to comma-separated parsing
+                    self.__dict__['_cors_origins_list'] = [i.strip() for i in cors_string.split(",") if i.strip()]
+            except (json.JSONDecodeError, ValueError):
+                # If JSON parsing fails, try comma-separated
+                self.__dict__['_cors_origins_list'] = [i.strip() for i in cors_string.split(",") if i.strip()]
         else:
             self.__dict__['_cors_origins_list'] = ["https://social-os-frontend.vercel.app"]
     
@@ -53,6 +70,12 @@ class Settings(BaseSettings):
     @property
     def allowed_origins(self) -> List[str]:
         """Get CORS allowed origins (compatibility property)"""
+        return self.get_cors_origins()
+    
+    # Backward compatibility property for BACKEND_CORS_ORIGINS
+    @property
+    def BACKEND_CORS_ORIGINS(self) -> List[str]:
+        """Get CORS origins for backward compatibility"""
         return self.get_cors_origins()
     
     # Database

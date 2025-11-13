@@ -279,6 +279,35 @@ async def test_database():
         }
 
 
+# Database configuration debug endpoint
+@app.get("/debug-db-config")
+async def debug_database_config():
+    """Debug database configuration (safe for production)"""
+    db_url = settings.get_database_url()
+    
+    # Parse URL safely without exposing credentials
+    if db_url.startswith("postgresql://"):
+        parts = db_url.replace("postgresql://", "").split("@")
+        if len(parts) == 2:
+            host_part = parts[1].split("/")[0]  # host:port
+            database_part = parts[1].split("/")[1] if "/" in parts[1] else "unknown"
+        else:
+            host_part = "unknown"
+            database_part = "unknown"
+    else:
+        host_part = "unknown"
+        database_part = "unknown"
+    
+    return {
+        "database_url_is_default": db_url == "postgresql://user:pass@localhost:5432/dbname",
+        "supabase_url_configured": settings.SUPABASE_URL != "https://placeholder.supabase.co",
+        "supabase_db_password_configured": settings.SUPABASE_DB_PASSWORD != "placeholder-db-password",
+        "constructed_host": host_part,
+        "constructed_database": database_part,
+        "supabase_project_ref": settings.SUPABASE_URL.replace("https://", "").replace(".supabase.co", "") if settings.SUPABASE_URL != "https://placeholder.supabase.co" else "not-configured"
+    }
+
+
 # Removed specific auth OPTIONS handler - letting CORS middleware handle it
 
 

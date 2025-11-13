@@ -89,20 +89,31 @@ async def register(
             full_name=register_data.full_name
         )
         
-        # Get user's workspace
-        workspaces = await WorkspaceService.get_user_workspaces_async(db, str(user.id))
-        workspace_id = str(workspaces[0].id) if workspaces else None
+        # Create default workspace for new user and make them admin
+        from app.models.workspace import Workspace
+        from app.models.workspace_member import WorkspaceMember, MemberRole
         
-        # Get user's role in workspace (new users are typically editors)
-        role = "editor"
-        if workspace_id:
-            from app.models.workspace_member import WorkspaceMember
-            member = db.query(WorkspaceMember).filter(
-                WorkspaceMember.workspace_id == workspace_id,
-                WorkspaceMember.user_id == str(user.id)
-            ).first()
-            if member:
-                role = member.role.value if hasattr(member.role, 'value') else str(member.role)
+        # Create default workspace
+        default_workspace = Workspace(
+            name=f"{register_data.full_name or register_data.email.split('@')[0]}'s Workspace",
+            description="Default workspace",
+            owner_id=str(user.id)
+        )
+        db.add(default_workspace)
+        await db.flush()  # Flush to get the workspace ID
+        
+        workspace_id = str(default_workspace.id)
+        
+        # Add user as admin to their workspace
+        workspace_member = WorkspaceMember(
+            workspace_id=workspace_id,
+            user_id=str(user.id),
+            role=MemberRole.ADMIN  # ✅ NEW USERS ARE ADMINS
+        )
+        db.add(workspace_member)
+        await db.commit()
+        
+        role = "admin"  # ✅ NEW USERS ARE ADMINS
         
         # Create tokens with role
         tokens = TokenService.create_tokens(user, workspace_id, role)

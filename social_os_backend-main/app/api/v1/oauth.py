@@ -2,7 +2,7 @@
 OAuth API endpoints - Social platform OAuth flows
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 import structlog
@@ -19,8 +19,8 @@ router = APIRouter()
 
 @router.get("/twitter/authorize")
 async def twitter_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Initiate Twitter OAuth flow
@@ -110,8 +110,8 @@ async def twitter_callback(
 
 @router.get("/linkedin/authorize")
 async def linkedin_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Initiate LinkedIn OAuth flow"""
     if not settings.LINKEDIN_CLIENT_ID:
@@ -177,8 +177,8 @@ async def linkedin_callback(
 
 @router.get("/facebook/authorize")
 async def facebook_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Initiate Facebook OAuth flow"""
     if not settings.FACEBOOK_CLIENT_ID:
@@ -241,8 +241,8 @@ async def facebook_callback(
 
 @router.get("/youtube/authorize")
 async def youtube_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Initiate YouTube OAuth flow"""
     if not settings.YOUTUBE_CLIENT_ID:
@@ -310,8 +310,8 @@ async def youtube_callback(
 
 @router.get("/facebook/authorize")
 async def facebook_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Initiate Facebook OAuth flow
@@ -407,8 +407,8 @@ async def facebook_callback(
 
 @router.get("/instagram/authorize")
 async def instagram_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Initiate Instagram OAuth flow
@@ -514,8 +514,8 @@ async def instagram_callback(
 
 @router.get("/linkedin/authorize")
 async def linkedin_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Initiate LinkedIn OAuth flow
@@ -610,8 +610,8 @@ async def linkedin_callback(
 
 @router.get("/tiktok/authorize")
 async def tiktok_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Initiate TikTok OAuth flow
@@ -707,8 +707,8 @@ async def tiktok_callback(
 
 @router.get("/twitter/authorize")
 async def twitter_authorize(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Initiate Twitter OAuth flow

@@ -108,7 +108,7 @@ async def create_invite(
             email=request.email,
             token=WorkspaceInvite.generate_token(),
             role=request.role,
-            invited_by=current_user["id"],
+            invited_by=user_id,
             expires_at=WorkspaceInvite.calculate_expiry(request.expires_in_days)
         )
         
@@ -149,10 +149,10 @@ async def accept_invite(
         member = InviteService.accept_invite(
             db=db,
             token=token,
-            user_id=current_user["id"]
+            user_id=user_id
         )
         
-        logger.info("invite_accepted", user_id=current_user["id"])
+        logger.info("invite_accepted", user_id=user_id)
         
         return {
             "success": True,
@@ -172,8 +172,8 @@ async def accept_invite(
 @router.delete("/{invite_id}", status_code=204)
 async def revoke_invite(
     invite_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -191,7 +191,7 @@ async def revoke_invite(
     ActivityService.log_activity(
         db=db,
         workspace_id=workspace_id,
-        user_id=current_user["id"],
+        user_id=user_id,
         action="invite_revoked",
         entity_type="invite",
         entity_id=invite_id

@@ -9,12 +9,12 @@ api_router = APIRouter()
 def _setup_routes():
     """Setup routes lazily to avoid circular imports"""
     from . import (
-        ai, posts, auth, workspaces, platforms, 
+        ai, posts, auth, workspaces, platforms,
         library, campaigns, analytics, scheduler, oauth, media,
         invites, members, activity, threads
     )
     
-    # Include sub-routers
+    # Include all sub-routers
     api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
     api_router.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
     api_router.include_router(workspaces.router, prefix="/workspaces", tags=["workspaces"])

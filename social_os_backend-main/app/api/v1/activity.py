@@ -12,7 +12,7 @@ from app.core.auth_helper import verify_auth_and_get_user
 # from app.services.activity_service import ActivityService
 import structlog
 
-logger = structlog.get_logger()
+logger = structlog.get_logger(, Request)
 router = APIRouter()
 
 
@@ -24,8 +24,8 @@ async def get_activity(
     end_date: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """

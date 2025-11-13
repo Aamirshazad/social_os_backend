@@ -28,8 +28,8 @@ async def get_threads(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     include_deleted: bool = Query(False),
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -49,8 +49,8 @@ async def get_threads(
 @router.post("", response_model=ThreadResponse, status_code=201)
 async def create_thread(
     request: CreateThreadRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -60,10 +60,10 @@ async def create_thread(
         db=db,
         workspace_id=workspace_id,
         title=request.title,
-        created_by=current_user["id"]
+        created_by=user_id
     )
     
-    logger.info("thread_created", thread_id=str(thread.id), user_id=current_user["id"])
+    logger.info("thread_created", thread_id=str(thread.id), user_id=user_id)
     
     return thread
 
@@ -71,8 +71,8 @@ async def create_thread(
 @router.get("/{thread_id}", response_model=ThreadResponse)
 async def get_thread(
     thread_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -98,8 +98,8 @@ async def get_thread(
 async def update_thread_title(
     thread_id: str,
     request: UpdateThreadTitleRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -113,7 +113,7 @@ async def update_thread_title(
             title=request.title
         )
         
-        logger.info("thread_title_updated", thread_id=thread_id, user_id=current_user["id"])
+        logger.info("thread_title_updated", thread_id=thread_id, user_id=user_id)
         
         return thread
         
@@ -129,8 +129,8 @@ async def update_thread_title(
 async def add_message(
     thread_id: str,
     request: AddMessageRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -149,7 +149,7 @@ async def add_message(
             message=message
         )
         
-        logger.info("message_added", thread_id=thread_id, user_id=current_user["id"])
+        logger.info("message_added", thread_id=thread_id, user_id=user_id)
         
         return thread
         
@@ -165,8 +165,8 @@ async def add_message(
 async def update_messages(
     thread_id: str,
     request: UpdateMessagesRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -182,7 +182,7 @@ async def update_messages(
             messages=messages
         )
         
-        logger.info("messages_updated", thread_id=thread_id, user_id=current_user["id"])
+        logger.info("messages_updated", thread_id=thread_id, user_id=user_id)
         
         return thread
         
@@ -197,8 +197,8 @@ async def update_messages(
 @router.delete("/{thread_id}", status_code=204)
 async def delete_thread(
     thread_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -211,7 +211,7 @@ async def delete_thread(
             workspace_id=workspace_id
         )
         
-        logger.info("thread_deleted", thread_id=thread_id, user_id=current_user["id"])
+        logger.info("thread_deleted", thread_id=thread_id, user_id=user_id)
         
         return None
         
@@ -226,8 +226,8 @@ async def delete_thread(
 @router.post("/{thread_id}/restore", response_model=ThreadResponse)
 async def restore_thread(
     thread_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -240,7 +240,7 @@ async def restore_thread(
             workspace_id=workspace_id
         )
         
-        logger.info("thread_restored", thread_id=thread_id, user_id=current_user["id"])
+        logger.info("thread_restored", thread_id=thread_id, user_id=user_id)
         
         return thread
         
@@ -255,8 +255,8 @@ async def restore_thread(
 @router.get("/recent", response_model=List[ThreadResponse])
 async def get_recent_threads(
     limit: int = Query(10, ge=1, le=50),
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """

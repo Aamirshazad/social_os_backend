@@ -2,7 +2,7 @@
 Platform API endpoints - Publishing and platform management
 """
 from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
@@ -42,9 +42,8 @@ class VerifyCredentialsResponse(BaseModel):
 
 @router.post("/publish")
 async def publish_to_platform(
-    request: PublishRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    publish_request: PublishRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -53,26 +52,30 @@ async def publish_to_platform(
     Requires platform credentials to be connected first
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
         result = await PublishingService.publish_to_platform(
             db=db,
             workspace_id=workspace_id,
-            platform=request.platform,
-            content=request.content,
-            media_urls=request.media_urls,
-            **request.additional_params
+            platform=publish_request.platform,
+            content=publish_request.content,
+            media_urls=publish_request.media_urls,
+            **publish_request.additional_params
         )
         
         if result.get("success"):
             return {
                 "success": True,
                 "data": result,
-                "message": f"Post published successfully to {request.platform}"
+                "message": f"Post published successfully to {publish_request.platform}"
             }
         else:
             return {
                 "success": False,
                 "error": result.get("error"),
-                "platform": request.platform
+                "platform": publish_request.platform
             }
             
     except Exception as e:
@@ -85,9 +88,8 @@ async def publish_to_platform(
 
 @router.post("/publish/multiple")
 async def publish_to_multiple_platforms(
-    request: MultiPlatformPublishRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    publish_request: MultiPlatformPublishRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -96,12 +98,16 @@ async def publish_to_multiple_platforms(
     Each platform can have customized content
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
         results = await PublishingService.publish_to_multiple_platforms(
             db=db,
             workspace_id=workspace_id,
-            platforms=request.platforms,
-            content_by_platform=request.content_by_platform,
-            media_urls=request.media_urls
+            platforms=publish_request.platforms,
+            content_by_platform=publish_request.content_by_platform,
+            media_urls=publish_request.media_urls
         )
         
         # Count successes
@@ -129,8 +135,7 @@ async def publish_to_multiple_platforms(
 @router.get("/{platform}/verify")
 async def verify_platform_credentials(
     platform: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -138,6 +143,10 @@ async def verify_platform_credentials(
     
     Returns account information if credentials are valid
     """
+    # Verify authentication and get user data
+    user_id, user_data = await verify_auth_and_get_user(request, db)
+    workspace_id = user_data["workspace_id"]
+    
     result = await PublishingService.verify_platform_credentials(
         db=db,
         workspace_id=workspace_id,
@@ -153,8 +162,7 @@ async def verify_platform_credentials(
 
 @router.get("/credentials/status")
 async def get_credentials_status(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -162,6 +170,10 @@ async def get_credentials_status(
     
     Returns list of connected platforms with metadata
     """
+    # Verify authentication and get user data
+    user_id, user_data = await verify_auth_and_get_user(request, db)
+    workspace_id = user_data["workspace_id"]
+    
     credentials = CredentialService.get_all_credentials(
         db=db,
         workspace_id=workspace_id
@@ -179,14 +191,17 @@ async def get_credentials_status(
 @router.delete("/{platform}/disconnect")
 async def disconnect_platform(
     platform: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
     Disconnect a platform by deleting its credentials
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
         CredentialService.delete_credential(
             db=db,
             workspace_id=workspace_id,
@@ -230,9 +245,8 @@ class FacebookScheduleRequest(BaseModel):
 
 @router.post("/facebook/post")
 async def facebook_post(
-    request: FacebookPostRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    facebook_request: FacebookPostRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -258,9 +272,9 @@ async def facebook_post(
         
         result = await facebook_publisher.publish_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            media_urls=request.media_urls,
-            page_id=request.page_id
+            content=facebook_request.content,
+            media_urls=facebook_request.media_urls,
+            page_id=facebook_request.page_id
         )
         
         logger.info("facebook_post_published", workspace_id=workspace_id, result=result)
@@ -274,9 +288,8 @@ async def facebook_post(
 
 @router.post("/facebook/schedule")
 async def facebook_schedule_post(
-    request: FacebookScheduleRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    facebook_request: FacebookScheduleRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -302,10 +315,10 @@ async def facebook_schedule_post(
         
         result = await facebook_publisher.schedule_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            scheduled_time=request.scheduled_time,
-            media_urls=request.media_urls,
-            page_id=request.page_id
+            content=facebook_request.content,
+            scheduled_time=facebook_request.scheduled_time,
+            media_urls=facebook_request.media_urls,
+            page_id=facebook_request.page_id
         )
         
         logger.info("facebook_post_scheduled", workspace_id=workspace_id, result=result)
@@ -320,8 +333,7 @@ async def facebook_schedule_post(
 @router.post("/facebook/upload-media")
 async def facebook_upload_media(
     media_url: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -362,8 +374,8 @@ async def facebook_upload_media(
 @router.get("/facebook/post/{post_id}/metrics")
 async def facebook_post_metrics(
     post_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -401,8 +413,8 @@ async def facebook_post_metrics(
 
 @router.get("/facebook/verify")
 async def facebook_verify_credentials(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -452,9 +464,8 @@ class InstagramScheduleRequest(BaseModel):
 
 @router.post("/instagram/post")
 async def instagram_post(
-    request: InstagramPostRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    instagram_request: InstagramPostRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -496,9 +507,8 @@ async def instagram_post(
 
 @router.post("/instagram/schedule")
 async def instagram_schedule_post(
-    request: InstagramScheduleRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    instagram_request: InstagramScheduleRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -543,8 +553,8 @@ async def instagram_schedule_post(
 async def instagram_upload_media(
     media_url: str,
     instagram_account_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -586,8 +596,8 @@ async def instagram_upload_media(
 @router.get("/instagram/post/{post_id}/metrics")
 async def instagram_post_metrics(
     post_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -625,8 +635,8 @@ async def instagram_post_metrics(
 
 @router.get("/instagram/verify")
 async def instagram_verify_credentials(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -676,9 +686,8 @@ class LinkedInScheduleRequest(BaseModel):
 
 @router.post("/linkedin/post")
 async def linkedin_post(
-    request: LinkedInPostRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    linkedin_request: LinkedInPostRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -720,9 +729,8 @@ async def linkedin_post(
 
 @router.post("/linkedin/schedule")
 async def linkedin_schedule_post(
-    request: LinkedInScheduleRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    linkedin_request: LinkedInScheduleRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -766,9 +774,8 @@ async def linkedin_schedule_post(
 @router.post("/linkedin/upload-media")
 async def linkedin_upload_media(
     media_url: str,
+    request: Request,
     person_urn: str = None,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -810,8 +817,8 @@ async def linkedin_upload_media(
 @router.get("/linkedin/post/{post_id}/metrics")
 async def linkedin_post_metrics(
     post_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -849,8 +856,8 @@ async def linkedin_post_metrics(
 
 @router.get("/linkedin/verify")
 async def linkedin_verify_credentials(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -902,9 +909,8 @@ class TikTokScheduleRequest(BaseModel):
 
 @router.post("/tiktok/post")
 async def tiktok_post(
-    request: TikTokPostRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    tiktok_request: TikTokPostRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -949,9 +955,8 @@ async def tiktok_post(
 
 @router.post("/tiktok/schedule")
 async def tiktok_schedule_post(
-    request: TikTokScheduleRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    tiktok_request: TikTokScheduleRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -994,8 +999,8 @@ async def tiktok_schedule_post(
 @router.post("/tiktok/upload-media")
 async def tiktok_upload_media(
     media_url: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1036,8 +1041,8 @@ async def tiktok_upload_media(
 @router.get("/tiktok/post/{post_id}/metrics")
 async def tiktok_post_metrics(
     post_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1075,8 +1080,8 @@ async def tiktok_post_metrics(
 
 @router.get("/tiktok/verify")
 async def tiktok_verify_credentials(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1125,9 +1130,8 @@ class TwitterScheduleRequest(BaseModel):
 
 @router.post("/twitter/post")
 async def twitter_post(
-    request: TwitterPostRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    twitter_request: TwitterPostRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1169,9 +1173,8 @@ async def twitter_post(
 
 @router.post("/twitter/schedule")
 async def twitter_schedule_post(
-    request: TwitterScheduleRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    twitter_request: TwitterScheduleRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1214,8 +1217,8 @@ async def twitter_schedule_post(
 @router.post("/twitter/upload-media")
 async def twitter_upload_media(
     media_url: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1256,8 +1259,8 @@ async def twitter_upload_media(
 @router.get("/twitter/post/{post_id}/metrics")
 async def twitter_post_metrics(
     post_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1295,8 +1298,8 @@ async def twitter_post_metrics(
 
 @router.get("/twitter/verify")
 async def twitter_verify_credentials(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1352,9 +1355,8 @@ class YouTubeScheduleRequest(BaseModel):
 
 @router.post("/youtube/post")
 async def youtube_post(
-    request: YouTubePostRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    youtube_request: YouTubePostRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1400,9 +1402,8 @@ async def youtube_post(
 
 @router.post("/youtube/schedule")
 async def youtube_schedule_post(
-    request: YouTubeScheduleRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    youtube_request: YouTubeScheduleRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1446,10 +1447,9 @@ async def youtube_schedule_post(
 @router.post("/youtube/upload-media")
 async def youtube_upload_media(
     media_url: str,
+    request: Request,
     title: str = "Untitled Video",
     description: str = "",
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1492,8 +1492,8 @@ async def youtube_upload_media(
 @router.get("/youtube/post/{post_id}/metrics")
 async def youtube_post_metrics(
     post_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -1531,8 +1531,8 @@ async def youtube_post_metrics(
 
 @router.get("/youtube/verify")
 async def youtube_verify_credentials(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """

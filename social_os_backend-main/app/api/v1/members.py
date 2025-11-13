@@ -2,7 +2,7 @@
 Workspace Members API endpoints
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
@@ -29,9 +29,8 @@ class MemberResponse(BaseModel):
 
 @router.get("", response_model=List[MemberResponse])
 async def get_members(
+    request: Request,
     role: Optional[str] = Query(None, pattern="^(admin|editor|viewer)$"),
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -40,6 +39,10 @@ async def get_members(
     Query Parameters:
     - role: Filter by role (optional)
     """
+    # Verify authentication and get user data
+    user_id, user_data = await verify_auth_and_get_user(request, db)
+    workspace_id = user_data["workspace_id"]
+    
     query = db.query(WorkspaceMember).filter(
         WorkspaceMember.workspace_id == workspace_id
     )

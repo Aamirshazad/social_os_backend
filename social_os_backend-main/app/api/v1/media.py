@@ -27,9 +27,9 @@ class Base64UploadRequest(BaseModel):
 @router.post("/upload/image")
 async def upload_image(
     file: UploadFile = File(...),
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
-):
+    request: Request,
+
+    ):
     """
     Upload an image file
     
@@ -89,9 +89,9 @@ async def upload_image(
 @router.post("/upload/video")
 async def upload_video(
     file: UploadFile = File(...),
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
-):
+    request: Request,
+
+    ):
     """
     Upload a video file
     
@@ -143,9 +143,9 @@ async def upload_video(
 @router.post("/upload/base64")
 async def upload_base64(
     request: Base64UploadRequest,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user)
-):
+    request: Request,
+
+    ):
     """
     Upload a base64 encoded file
     

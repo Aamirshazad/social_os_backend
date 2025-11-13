@@ -2,7 +2,7 @@
 Scheduler API endpoints - Post scheduling and queue management
 """
 from typing import List
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -26,8 +26,7 @@ class SchedulePostRequest(BaseModel):
 
 @router.get("/pending")
 async def get_pending_scheduled_posts(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -35,6 +34,10 @@ async def get_pending_scheduled_posts(
     
     Returns posts that are scheduled but not yet published
     """
+    # Verify authentication and get user data
+    user_id, user_data = await verify_auth_and_get_user(request, db)
+    workspace_id = user_data["workspace_id"]
+    
     pending_posts = PostService.get_scheduled_posts(
         db=db,
         workspace_id=workspace_id
@@ -53,8 +56,8 @@ async def get_pending_scheduled_posts(
 async def schedule_post(
     request: SchedulePostRequest,
     background_tasks: BackgroundTasks,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -104,8 +107,8 @@ async def schedule_post(
 @router.delete("/{post_id}/cancel")
 async def cancel_scheduled_post(
     post_id: str,
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -133,8 +136,8 @@ async def cancel_scheduled_post(
 
 @router.get("/queue/status")
 async def get_queue_status(
-    workspace_id: str = Depends(get_workspace_id),
-    current_user: dict = Depends(get_current_active_user),
+    request: Request,
+
     db: AsyncSession = Depends(get_async_db)
 ):
     """

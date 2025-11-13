@@ -21,47 +21,50 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     
-    # CORS - Use string field to avoid JSON parsing issues
-    BACKEND_CORS_ORIGINS_STR: str = "http://localhost:3000,https://localhost:3000,https://social-ms.vercel.app"
+    # CORS - Use a simple string field and parse it after initialization
+    CORS_ORIGINS_STRING: str = "https://social-os-frontend.vercel.app"
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Parse CORS origins after initialization to avoid Pydantic issues
+        self._parse_cors_origins()
+    
+    def _parse_cors_origins(self):
+        """Parse CORS origins from environment or default string"""
+        import os
+        # Check environment variable first
+        env_value = os.getenv('BACKEND_CORS_ORIGINS')
+        if env_value:
+            cors_string = env_value
+        else:
+            cors_string = self.CORS_ORIGINS_STRING
+            
+        # Parse the string into a list
+        if isinstance(cors_string, str) and cors_string.strip():
+            self._backend_cors_origins = [i.strip() for i in cors_string.split(",") if i.strip()]
+        else:
+            self._backend_cors_origins = ["http://localhost:3000"]
     
     @property
     def BACKEND_CORS_ORIGINS(self) -> List[str]:
-        """Parse CORS origins from string or return default list"""
-        # Check for BACKEND_CORS_ORIGINS environment variable first
-        import os
-        env_value = os.getenv('BACKEND_CORS_ORIGINS')
-        if env_value:
-            value = env_value
-        else:
-            value = getattr(self, 'BACKEND_CORS_ORIGINS_STR', '')
-            
-        if isinstance(value, str):
-            # Handle empty string case
-            if not value.strip():
-                return ["http://localhost:3000"]
-            # Split comma-separated values
-            return [i.strip() for i in value.split(",") if i.strip()]
-        elif isinstance(value, list):
-            return value
-        else:
-            # Fallback to default
-            return ["http://localhost:3000"]
+        """Get parsed CORS origins"""
+        return getattr(self, '_backend_cors_origins', ["http://localhost:3000"])
     
     # Database
-    DATABASE_URL: str = Field("postgresql://user:pass@localhost:5432/dbname")
+    DATABASE_URL: str = Field(default="postgresql://user:pass@localhost:5432/dbname")
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
     
     # JWT
-    SECRET_KEY: str = Field(default_factory=secrets.token_urlsafe)
+    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Supabase
-    SUPABASE_URL: str = Field("https://placeholder.supabase.co")
-    SUPABASE_KEY: str = Field("placeholder-key")
-    SUPABASE_SERVICE_ROLE_KEY: str = Field("placeholder-service-key")
+    SUPABASE_URL: str = Field(default="https://placeholder.supabase.co")
+    SUPABASE_KEY: str = Field(default="placeholder-key")
+    SUPABASE_SERVICE_ROLE_KEY: str = Field(default="placeholder-service-key")
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -96,8 +99,8 @@ class Settings(BaseSettings):
     YOUTUBE_CLIENT_SECRET: Optional[str] = None
     
     # Application URLs
-    FRONTEND_URL: str = Field("http://localhost:3000")
-    CALLBACK_URL: str = Field("http://localhost:8000/api/v1/oauth")
+    FRONTEND_URL: str = Field(default="https://social-os-frontend.vercel.app")
+    CALLBACK_URL: str = Field(default="http://localhost:8000/api/v1/oauth")
     
     # Email Configuration
     RESEND_API_KEY: Optional[str] = None
@@ -105,7 +108,7 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: Optional[str] = None
     
     # Encryption
-    ENCRYPTION_KEY: str = Field(default_factory=secrets.token_urlsafe)
+    ENCRYPTION_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
@@ -149,7 +152,7 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "case_sensitive": True,
         # Exclude problematic list fields from automatic env parsing since we handle them manually
-        "env_ignore": {"BACKEND_CORS_ORIGINS", "ALLOWED_IMAGE_TYPES", "ALLOWED_VIDEO_TYPES"}
+        "env_ignore": {"ALLOWED_IMAGE_TYPES", "ALLOWED_VIDEO_TYPES"}
     }
 
 

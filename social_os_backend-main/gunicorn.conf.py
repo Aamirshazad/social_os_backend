@@ -11,7 +11,7 @@ backlog = 2048
 workers = 1  # Single worker for starter plan
 worker_class = "uvicorn.workers.UvicornWorker"
 worker_connections = 1000
-timeout = 30
+timeout = 120  # Increase timeout to prevent premature shutdowns
 keepalive = 2
 
 # Restart workers after this many requests, to help prevent memory leaks

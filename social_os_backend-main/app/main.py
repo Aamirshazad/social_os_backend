@@ -68,20 +68,10 @@ logger.info("cors_configuration", origins=cors_origins)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for debugging
+    allow_credentials=False,  # Disable credentials when using wildcard
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
-    allow_headers=[
-        "Accept",
-        "Accept-Language",
-        "Content-Language",
-        "Content-Type",
-        "Authorization",
-        "X-Requested-With",
-        "Origin",
-        "Access-Control-Request-Method",
-        "Access-Control-Request-Headers",
-    ],
+    allow_headers=["*"],  # Allow all headers
     expose_headers=["*"]
 )
 
@@ -243,23 +233,7 @@ async def cors_test_post():
     return {"message": "CORS POST test successful", "timestamp": "2025-11-13T15:49:00Z"}
 
 
-@app.options("/cors-test")
-async def cors_test_options(request: Request):
-    """CORS preflight test endpoint"""
-    logger.info("cors_test_preflight", headers=dict(request.headers))
-    
-    # Get the origin from the request
-    origin = request.headers.get("origin", "https://social-os-frontend.vercel.app")
-    
-    from fastapi.responses import Response
-    response = Response(status_code=200)
-    response.headers["Access-Control-Allow-Origin"] = origin
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
-    response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Max-Age"] = "86400"
-    
-    return response
+# Removed manual CORS OPTIONS handler - letting CORS middleware handle it
 
 
 # Test endpoint that mimics the auth/login structure
@@ -269,49 +243,14 @@ async def test_login():
     return {"message": "Test login endpoint working", "cors": "success"}
 
 
-# Specific OPTIONS handler for auth endpoints
-@app.options("/api/v1/auth/{path:path}")
-async def auth_options_handler(path: str, request: Request):
-    """Specific OPTIONS handler for auth endpoints"""
-    logger.info("auth_preflight_request", path=path, headers=dict(request.headers))
-    
-    # Get the origin from the request - allow all for debugging
-    origin = request.headers.get("origin", "*")
-    
-    from fastapi.responses import Response
-    response = Response(status_code=200)
-    response.headers["Access-Control-Allow-Origin"] = origin
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
-    response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Max-Age"] = "86400"
-    
-    return response
+# Removed specific auth OPTIONS handler - letting CORS middleware handle it
 
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
-# Global OPTIONS handler for preflight requests - AFTER API router for fallback
-@app.options("/{path:path}")
-async def options_handler(path: str, request: Request):
-    """Global OPTIONS handler for preflight requests"""
-    logger.info("global_preflight_fallback", path=path, headers=dict(request.headers))
-    
-    # Get the origin from the request
-    origin = request.headers.get("origin", "*")  # Allow all origins for debugging
-    
-    # Return proper CORS headers for preflight
-    from fastapi.responses import Response
-    response = Response(status_code=200)
-    response.headers["Access-Control-Allow-Origin"] = origin
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
-    response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Max-Age"] = "86400"  # Cache preflight for 24 hours
-    
-    return response
+# Removed global OPTIONS handler - letting CORS middleware handle all preflight requests
 
 
 # Root endpoint

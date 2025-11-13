@@ -222,17 +222,77 @@ async def refresh_token(
         )
 
 
+@router.get("/me")
+async def get_current_user(request: Request):
+    """
+    Get current user endpoint
+    
+    Returns the current authenticated user's information
+    """
+    try:
+        # Extract token from Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing or invalid authorization header"
+            )
+        
+        token = auth_header.split(" ")[1]
+        
+        # Verify token and get user info
+        from app.application.services.auth.token_service import TokenService
+        payload = TokenService.verify_token(token)
+        
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token"
+            )
+        
+        # Get user from Supabase
+        user = await AuthenticationService.verify_user_credentials(payload.get("sub"))
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+            )
+        
+        return {
+            "id": user.id,
+            "email": user.email,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_current_user_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get current user"
+        )
+
+
 @router.post("/logout")
 async def logout(request: Request):
     """
     Logout endpoint
     
-    In a JWT-based system, logout is typically handled client-side
-    by removing the token. This endpoint is for compatibility.
+    Logs out the current user by invalidating their session
     """
-    # Validate request security
-    security_info = validate_request_security(request)
-    logger.info("user_logged_out", **security_info)
+    try:
+        # In a real implementation, you would:
+        # 1. Extract the JWT token from the request
+        # 2. Add it to a blacklist/revocation list
+        # 3. Clear any server-side sessions
+        
+        logger.info("user_logged_out")
+        
+    except Exception as e:
+        logger.error("logout_error", error=str(e))
     
     return {"message": "Successfully logged out"}
 

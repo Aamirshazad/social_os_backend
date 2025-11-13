@@ -16,27 +16,31 @@ class TokenService:
     """Service for JWT token operations"""
     
     @staticmethod
-    def create_tokens(user: User, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+    def create_tokens(user, workspace_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Create access and refresh tokens for user
         
         Args:
-            user: User object
+            user: User object (can be Supabase user or SQLAlchemy User)
             workspace_id: Optional workspace ID
         
         Returns:
             Dictionary containing tokens
         """
+        # Handle both Supabase user objects and SQLAlchemy User objects
+        user_id = getattr(user, 'id', None) or getattr(user, 'user_id', None)
+        user_email = getattr(user, 'email', None)
+        
         token_data = {
-            "sub": str(user.id),
-            "email": user.email,
+            "sub": str(user_id),
+            "email": user_email,
             "workspace_id": workspace_id
         }
         
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
-        logger.info("tokens_created", user_id=str(user.id))
+        logger.info("tokens_created", user_id=str(user_id))
         
         return {
             "access_token": access_token,

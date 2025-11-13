@@ -245,20 +245,28 @@ async def get_current_user(request: Request):
         payload = TokenService.verify_token(token)
         
         if not payload:
+            logger.error("token_verification_failed", token_present=bool(token))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token"
             )
         
+        # Log payload for debugging
+        logger.info("token_payload_debug", payload_keys=list(payload.keys()) if payload else None)
+        
         # For now, return user info from JWT payload since we're using Supabase auth
-        user_id = payload.get("sub")
+        user_id = payload.get("sub") or payload.get("user_id")
         user_email = payload.get("email")
         
-        if not user_id or not user_email:
+        if not user_id:
+            logger.error("missing_user_id_in_token", payload=payload)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload"
+                detail="Invalid token: missing user ID"
             )
+        
+        if not user_email:
+            logger.warning("missing_email_in_token", user_id=user_id)
         
         return {
             "id": user_id,

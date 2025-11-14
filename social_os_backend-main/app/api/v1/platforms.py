@@ -50,7 +50,6 @@ async def publish_to_platform(
         workspace_id = user_data["workspace_id"]
         
         result = await PublishingService.publish_to_platform(
-            db=db,
             workspace_id=workspace_id,
             platform=publish_request.platform,
             content=publish_request.content,
@@ -94,7 +93,6 @@ async def publish_to_multiple_platforms(
         workspace_id = user_data["workspace_id"]
         
         results = await PublishingService.publish_to_multiple_platforms(
-            db=db,
             workspace_id=workspace_id,
             platforms=publish_request.platforms,
             content_by_platform=publish_request.content_by_platform,
@@ -137,7 +135,6 @@ async def verify_platform_credentials(
     workspace_id = user_data["workspace_id"]
     
     result = await PublishingService.verify_platform_credentials(
-        db=db,
         workspace_id=workspace_id,
         platform=platform
     )
@@ -159,7 +156,6 @@ async def get_credentials_status(
 
     # Use async credential service helper
     credentials = await CredentialService.get_all_workspace_credentials(
-        db=db,
         workspace_id=workspace_id)
 
     # Map to a simple status list the frontend expects
@@ -190,7 +186,6 @@ async def disconnect_platform(
         workspace_id = user_data["workspace_id"]
 
         deleted = await CredentialService.delete_platform_credentials(
-            db=db,
             workspace_id=workspace_id,
             platform=platform)
 
@@ -240,9 +235,12 @@ async def facebook_post(
     Post content to Facebook
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Facebook credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="facebook"
         )
@@ -281,9 +279,12 @@ async def facebook_schedule_post(
     Schedule a Facebook post
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Facebook credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="facebook"
         )
@@ -323,9 +324,12 @@ async def facebook_upload_media(
     Upload media to Facebook
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Facebook credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="facebook"
         )
@@ -362,9 +366,12 @@ async def facebook_post_metrics(
     Get Facebook post analytics
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Facebook credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="facebook"
         )
@@ -398,9 +405,12 @@ async def facebook_verify_credentials(
     Verify Facebook credentials
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Facebook credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="facebook"
         )
@@ -445,9 +455,12 @@ async def instagram_post(
     Post content to Instagram
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Instagram credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="instagram"
         )
@@ -464,9 +477,9 @@ async def instagram_post(
         
         result = await instagram_publisher.publish_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            media_urls=request.media_urls,
-            instagram_account_id=request.instagram_account_id
+            content=instagram_request.content,
+            media_urls=instagram_request.media_urls,
+            instagram_account_id=instagram_request.instagram_account_id
         )
         
         logger.info("instagram_post_published", workspace_id=workspace_id, result=result)
@@ -486,9 +499,12 @@ async def instagram_schedule_post(
     Schedule an Instagram post
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Instagram credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="instagram"
         )
@@ -505,10 +521,10 @@ async def instagram_schedule_post(
         
         result = await instagram_publisher.schedule_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            scheduled_time=request.scheduled_time,
-            media_urls=request.media_urls,
-            instagram_account_id=request.instagram_account_id
+            content=instagram_request.content,
+            scheduled_time=instagram_request.scheduled_time,
+            media_urls=instagram_request.media_urls,
+            instagram_account_id=instagram_request.instagram_account_id
         )
         
         logger.info("instagram_post_scheduled", workspace_id=workspace_id, result=result)
@@ -529,9 +545,12 @@ async def instagram_upload_media(
     Upload media to Instagram
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Instagram credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="instagram"
         )
@@ -569,9 +588,12 @@ async def instagram_post_metrics(
     Get Instagram post analytics
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Instagram credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="instagram"
         )
@@ -605,9 +627,12 @@ async def instagram_verify_credentials(
     Verify Instagram credentials
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Instagram credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="instagram"
         )
@@ -652,9 +677,12 @@ async def linkedin_post(
     Post content to LinkedIn
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get LinkedIn credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="linkedin"
         )
@@ -671,9 +699,9 @@ async def linkedin_post(
         
         result = await linkedin_publisher.publish_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            media_urls=request.media_urls,
-            person_urn=request.person_urn or f"urn:li:person:{credentials['user_id']}"
+            content=linkedin_request.content,
+            media_urls=linkedin_request.media_urls,
+            person_urn=linkedin_request.person_urn or f"urn:li:person:{credentials['user_id']}"
         )
         
         logger.info("linkedin_post_published", workspace_id=workspace_id, result=result)
@@ -693,9 +721,12 @@ async def linkedin_schedule_post(
     Schedule a LinkedIn post (creates as draft)
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get LinkedIn credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="linkedin"
         )
@@ -712,10 +743,10 @@ async def linkedin_schedule_post(
         
         result = await linkedin_publisher.schedule_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            scheduled_time=request.scheduled_time,
-            media_urls=request.media_urls,
-            person_urn=request.person_urn or f"urn:li:person:{credentials['user_id']}"
+            content=linkedin_request.content,
+            scheduled_time=linkedin_request.scheduled_time,
+            media_urls=linkedin_request.media_urls,
+            person_urn=linkedin_request.person_urn or f"urn:li:person:{credentials['user_id']}"
         )
         
         logger.info("linkedin_post_scheduled", workspace_id=workspace_id, result=result)
@@ -736,9 +767,12 @@ async def linkedin_upload_media(
     Upload media to LinkedIn
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get LinkedIn credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="linkedin"
         )
@@ -776,9 +810,12 @@ async def linkedin_post_metrics(
     Get LinkedIn post analytics
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get LinkedIn credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="linkedin"
         )
@@ -812,9 +849,12 @@ async def linkedin_verify_credentials(
     Verify LinkedIn credentials
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get LinkedIn credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="linkedin"
         )
@@ -861,9 +901,12 @@ async def tiktok_post(
     Post content to TikTok
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get TikTok credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="tiktok"
         )
@@ -880,12 +923,12 @@ async def tiktok_post(
         
         result = await tiktok_publisher.publish_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            media_urls=request.media_urls,
-            privacy_level=request.privacy_level,
-            disable_duet=request.disable_duet,
-            disable_comment=request.disable_comment,
-            disable_stitch=request.disable_stitch
+            content=tiktok_request.content,
+            media_urls=tiktok_request.media_urls,
+            privacy_level=tiktok_request.privacy_level,
+            disable_duet=tiktok_request.disable_duet,
+            disable_comment=tiktok_request.disable_comment,
+            disable_stitch=tiktok_request.disable_stitch
         )
         
         logger.info("tiktok_post_published", workspace_id=workspace_id, result=result)
@@ -905,9 +948,12 @@ async def tiktok_schedule_post(
     Schedule a TikTok post (not supported by TikTok API)
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get TikTok credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="tiktok"
         )
@@ -924,9 +970,9 @@ async def tiktok_schedule_post(
         
         result = await tiktok_publisher.schedule_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            scheduled_time=request.scheduled_time,
-            media_urls=request.media_urls
+            content=tiktok_request.content,
+            scheduled_time=tiktok_request.scheduled_time,
+            media_urls=tiktok_request.media_urls
         )
         
         logger.info("tiktok_post_schedule_attempted", workspace_id=workspace_id, result=result)
@@ -946,9 +992,12 @@ async def tiktok_upload_media(
     Upload media to TikTok
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get TikTok credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="tiktok"
         )
@@ -985,9 +1034,12 @@ async def tiktok_post_metrics(
     Get TikTok post analytics
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get TikTok credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="tiktok"
         )
@@ -1021,9 +1073,12 @@ async def tiktok_verify_credentials(
     Verify TikTok credentials
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get TikTok credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="tiktok"
         )
@@ -1067,9 +1122,12 @@ async def twitter_post(
     Post content to Twitter
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Twitter credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="twitter"
         )
@@ -1086,9 +1144,9 @@ async def twitter_post(
         
         result = await twitter_publisher.publish_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            media_urls=request.media_urls,
-            reply_settings=request.reply_settings
+            content=twitter_request.content,
+            media_urls=twitter_request.media_urls,
+            reply_settings=twitter_request.reply_settings
         )
         
         logger.info("twitter_post_published", workspace_id=workspace_id, result=result)
@@ -1108,9 +1166,12 @@ async def twitter_schedule_post(
     Schedule a Twitter post (not supported by Twitter API)
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Twitter credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="twitter"
         )
@@ -1127,9 +1188,9 @@ async def twitter_schedule_post(
         
         result = await twitter_publisher.schedule_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            scheduled_time=request.scheduled_time,
-            media_urls=request.media_urls
+            content=twitter_request.content,
+            scheduled_time=twitter_request.scheduled_time,
+            media_urls=twitter_request.media_urls
         )
         
         logger.info("twitter_post_schedule_attempted", workspace_id=workspace_id, result=result)
@@ -1149,9 +1210,12 @@ async def twitter_upload_media(
     Upload media to Twitter
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Twitter credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="twitter"
         )
@@ -1188,9 +1252,12 @@ async def twitter_post_metrics(
     Get Twitter post analytics
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Twitter credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="twitter"
         )
@@ -1224,9 +1291,12 @@ async def twitter_verify_credentials(
     Verify Twitter credentials
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get Twitter credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="twitter"
         )
@@ -1274,12 +1344,15 @@ async def youtube_post(
     request: Request
 ):
     """
-    Post content to YouTube
+    Update YouTube video metadata
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get YouTube credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="youtube"
         )
@@ -1296,13 +1369,13 @@ async def youtube_post(
         
         result = await youtube_publisher.publish_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            media_urls=request.media_urls,
+            content=youtube_request.content,
+            media_urls=youtube_request.media_urls,
             post_type="video",
-            title=request.title,
-            category_id=request.category_id,
-            privacy_status=request.privacy_status,
-            tags=request.tags
+            title=youtube_request.title,
+            category_id=youtube_request.category_id,
+            privacy_status=youtube_request.privacy_status,
+            tags=youtube_request.tags
         )
         
         logger.info("youtube_post_published", workspace_id=workspace_id, result=result)
@@ -1322,9 +1395,12 @@ async def youtube_schedule_post(
     Schedule a YouTube video
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get YouTube credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="youtube"
         )
@@ -1341,10 +1417,10 @@ async def youtube_schedule_post(
         
         result = await youtube_publisher.schedule_post(
             access_token=credentials["access_token"],
-            content=request.content,
-            scheduled_time=request.scheduled_time,
-            media_urls=request.media_urls,
-            title=request.title
+            content=youtube_request.content,
+            scheduled_time=youtube_request.scheduled_time,
+            media_urls=youtube_request.media_urls,
+            title=youtube_request.title
         )
         
         logger.info("youtube_post_scheduled", workspace_id=workspace_id, result=result)
@@ -1363,12 +1439,15 @@ async def youtube_upload_media(
     description: str = ""
 ):
     """
-    Upload media to YouTube
+    Upload video to YouTube
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get YouTube credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="youtube"
         )
@@ -1407,9 +1486,12 @@ async def youtube_post_metrics(
     Get YouTube video analytics
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get YouTube credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="youtube"
         )
@@ -1443,9 +1525,12 @@ async def youtube_verify_credentials(
     Verify YouTube credentials
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request)
+        workspace_id = user_data["workspace_id"]
+        
         # Get YouTube credentials
-        credential_service = CredentialService(db)
-        credentials = credential_service.get_platform_credentials_sync(
+        credentials = await CredentialService.get_platform_credentials(
             workspace_id=workspace_id,
             platform="youtube"
         )

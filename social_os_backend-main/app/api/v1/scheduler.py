@@ -73,12 +73,9 @@ async def schedule_post(
     The post will be automatically published at the scheduled time
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         # Get post
         post = PostService.get_post_by_id(
@@ -138,12 +135,9 @@ async def cancel_scheduled_post(
     Changes status back to draft
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         from app.schemas.post import PostStatus
         

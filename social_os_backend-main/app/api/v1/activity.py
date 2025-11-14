@@ -41,12 +41,9 @@ async def get_activity(
     - offset: Pagination offset
     """
     try:
-        # Verify authentication and get user data
-        current_user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require admin role
+        current_user_id, user_data = await require_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require admin role for activity logs
-        await require_admin_role(user_data)
         
         # Parse dates
         start = None

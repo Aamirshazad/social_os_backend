@@ -54,12 +54,9 @@ async def get_invites(
     Requires admin role
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require admin role
+        user_id, user_data = await require_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require admin role
-        await require_admin_role(user_data)
         
         # Query invites from database (async)
         query = select(WorkspaceInvite).filter(
@@ -110,12 +107,9 @@ async def create_invite(
     Requires admin role
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require admin role
+        user_id, user_data = await require_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require admin role
-        await require_admin_role(user_data)
         
         from app.config import settings
         
@@ -210,12 +204,9 @@ async def revoke_invite(
     Requires admin role
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require admin role
+        user_id, user_data = await require_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require admin role
-        await require_admin_role(user_data)
         
         # TODO: Implement InviteService.revoke_invite and ActivityService.log_activity
         # For now, return a placeholder response

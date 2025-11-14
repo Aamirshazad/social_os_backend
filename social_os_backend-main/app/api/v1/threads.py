@@ -85,12 +85,9 @@ async def create_thread(
     Create a new thread
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         # TODO: Implement ThreadService.create_thread
         # For now, return a placeholder response
@@ -180,12 +177,9 @@ async def update_thread_title(
     Update thread title
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         # TODO: Implement ThreadService.update_thread_title
         # For now, return a placeholder response
@@ -230,12 +224,9 @@ async def add_message(
     Add a message to thread
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         # TODO: Implement ThreadService.add_message_to_thread
         # For now, return a placeholder response
@@ -285,12 +276,9 @@ async def update_messages(
     Update all messages in thread
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         # TODO: Implement ThreadService.update_thread_messages
         # For now, return a placeholder response
@@ -336,12 +324,9 @@ async def delete_thread(
     Delete (soft delete) a thread
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         # TODO: Implement ThreadService.delete_thread
         # For now, return a placeholder response
@@ -378,12 +363,9 @@ async def restore_thread(
     Restore a deleted thread
     """
     try:
-        # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        # Verify authentication and require editor or admin role
+        user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        # Require editor or admin role
-        await require_editor_or_admin_role(user_data)
         
         # TODO: Implement ThreadService.restore_thread
         # For now, return a placeholder response

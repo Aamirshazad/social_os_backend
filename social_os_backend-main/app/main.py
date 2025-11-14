@@ -52,12 +52,14 @@ cors_origins = settings.get_cors_origins()
 if settings.DEBUG:
     logger.info("cors_configuration", origins=cors_origins)
 
+# Temporarily allow all origins for debugging CORS issues
+# TODO: Revert to specific origins once CORS issue is resolved
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,  # Use specific origins from settings
-    allow_credentials=True,  # Enable credentials for authentication
+    allow_origins=["*"],  # Temporarily allow all origins for debugging
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],  # Specific headers only
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
     expose_headers=["Content-Type", "Authorization"],
     max_age=3600  # Cache CORS preflight for 1 hour
 )

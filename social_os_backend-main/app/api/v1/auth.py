@@ -15,6 +15,14 @@ import structlog
 logger = structlog.get_logger()
 router = APIRouter()
 
+@router.get("/health")
+async def health_check():
+    """
+    Lightweight health check endpoint for faster backend wake-up detection
+    Returns immediately without database calls
+    """
+    return {"status": "ok", "service": "auth"}
+
 def validate_request_security(request: Request) -> Dict[str, Any]:
     """
     Basic request information logging (minimal restrictions)

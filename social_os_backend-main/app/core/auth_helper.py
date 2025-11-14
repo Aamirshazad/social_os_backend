@@ -12,9 +12,28 @@ from app.core.supabase import get_supabase_service_client
 logger = structlog.get_logger()
 
 
+# Cache for Supabase clients to avoid recreation
+_cached_supabase_client = None
+_cached_service_client = None
+
+def get_cached_supabase_client():
+    """Get cached Supabase client for better performance"""
+    global _cached_supabase_client
+    if _cached_supabase_client is None:
+        _cached_supabase_client = AuthenticationService.get_supabase()
+    return _cached_supabase_client
+
+def get_cached_service_client():
+    """Get cached Supabase service client for better performance"""
+    global _cached_service_client
+    if _cached_service_client is None:
+        _cached_service_client = get_supabase_service_client()
+    return _cached_service_client
+
 async def verify_auth_and_get_user(request: Request) -> Tuple[str, Dict[str, Any]]:
     """
     Verify Supabase token and get user data from database
+    Optimized with client caching and minimal database calls
     
     Args:
         request: FastAPI request object
@@ -36,8 +55,8 @@ async def verify_auth_and_get_user(request: Request) -> Tuple[str, Dict[str, Any
         
         token = auth_header.split(" ")[1]
         
-        # Verify token with Supabase
-        supabase = AuthenticationService.get_supabase()
+        # Verify token with Supabase (use cached client)
+        supabase = get_cached_supabase_client()
         user_response = supabase.auth.get_user(token)
 
         # Handle case where Supabase client returns None or user is missing
@@ -50,8 +69,8 @@ async def verify_auth_and_get_user(request: Request) -> Tuple[str, Dict[str, Any
         user = user_response.user
         user_id = str(user.id)
         
-        # Get user data from database
-        supabase_service = get_supabase_service_client()
+        # Get user data from database (use cached service client)
+        supabase_service = get_cached_service_client()
         response = supabase_service.table("users").select(
             "workspace_id, role, is_active, full_name"
         ).eq("id", user_id).maybe_single().execute()

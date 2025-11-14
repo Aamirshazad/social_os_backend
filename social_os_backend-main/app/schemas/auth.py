@@ -24,6 +24,11 @@ class Token(BaseModel):
     role: Optional[str] = None  # admin, editor, viewer
 
 
+class AuthSuccessResponse(BaseModel):
+    """Simple success response for auth endpoints following Next.js pattern"""
+    message: str
+
+
 class TokenData(BaseModel):
     """Data stored in JWT token"""
     sub: str  # user_id

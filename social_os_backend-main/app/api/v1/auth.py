@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from typing import Dict, Any
 
 from app.database import get_async_db
-from app.schemas.auth import LoginRequest, Token, RefreshTokenRequest, RegisterRequest
+from app.schemas.auth import LoginRequest, Token, RefreshTokenRequest, RegisterRequest, AuthSuccessResponse
 from app.schemas.user import UserResponse
 from app.application.services.auth.authentication_service import AuthenticationService
 from app.core.exceptions import AuthenticationError, DuplicateError
@@ -106,7 +106,7 @@ async def get_current_user(
         )
 
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=AuthSuccessResponse)
 async def register(
     register_data: RegisterRequest,
     request: Request,
@@ -176,7 +176,7 @@ async def register(
         )
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=AuthSuccessResponse)
 async def login(
     login_data: LoginRequest,
     request: Request,

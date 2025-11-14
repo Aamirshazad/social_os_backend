@@ -180,7 +180,9 @@ class Settings(BaseSettings):
     model_config = {
         "env_file": ".env",
         "case_sensitive": True,
-        "extra": "ignore"  # This will ignore extra fields in .env
+        "extra": "allow",  # Allow extra fields in .env for Vercel
+        "validate_default": True,
+        "env_file_encoding": "utf-8"
     }
 
 

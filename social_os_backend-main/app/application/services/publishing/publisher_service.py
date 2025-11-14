@@ -2,6 +2,7 @@
 Publisher Service - Multi-platform content publishing
 """
 from typing import Dict, Any, List
+from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 import structlog

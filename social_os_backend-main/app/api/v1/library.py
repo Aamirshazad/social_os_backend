@@ -4,12 +4,10 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from pydantic import BaseModel, Field
 
 from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
-from app.models.post_library import PostLibrary
 from app.core.supabase import get_supabase_service_client
 import structlog
 
@@ -46,20 +44,6 @@ class PaginatedLibraryResponse(BaseModel):
     page: int
     page_size: int
     pages: int
-
-
-def serialize_library_item(item: PostLibrary) -> dict:
-    """Serialize PostLibrary model to LibraryItemResponse-compatible dict."""
-    return {
-        "id": str(item.id),
-        "workspace_id": str(item.workspace_id),
-        "title": item.title or "",
-        "content": item.content or {},
-        "type": item.post_type or "post",
-        "tags": item.platforms or [],
-        "created_at": item.created_at,
-        "updated_at": item.updated_at,
-    }
 
 
 def serialize_library_row(row: dict) -> dict:
@@ -164,27 +148,58 @@ async def archive_post_to_library(
         if user_data["workspace_id"] != archive_request.workspace_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to workspace")
 
-        db_item = PostLibrary(
-            workspace_id=archive_request.workspace_id,
-            created_by=user_id,
-            title=archive_request.title,
-            content=archive_request.content,
-            post_type=archive_request.type,
-            platforms=archive_request.tags or [],
-            published_at=datetime.utcnow(),
+        supabase = get_supabase_service_client()
+
+        db_item = {
+            "workspace_id": archive_request.workspace_id,
+            "created_by": user_id,
+            "title": archive_request.title,
+            "content": archive_request.content or {},
+            "post_type": archive_request.type,
+            "platforms": archive_request.tags or [],
+            "published_at": datetime.utcnow(),
+        }
+
+        response = (
+            supabase.table("post_library")
+            .insert(db_item)
+            .select("*")
+            .maybe_single()
+            .execute()
         )
 
-        db.add(db_item)
-        await db.commit()
-        await db.refresh(db_item)
+        error = getattr(response, "error", None)
+        if error:
+            logger.error(
+                "supabase_archive_post_error",
+                error=str(error),
+                workspace_id=archive_request.workspace_id,
+                user_id=user_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to archive post to library",
+            )
+
+        row = getattr(response, "data", None)
+        if not row:
+            logger.error(
+                "supabase_archive_post_empty_response",
+                workspace_id=archive_request.workspace_id,
+                user_id=user_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to archive post to library",
+            )
 
         logger.info(
             "post_archived",
-            library_id=str(db_item.id),
+            library_id=str(row.get("id")),
             workspace_id=archive_request.workspace_id,
         )
 
-        return serialize_library_item(db_item)
+        return serialize_library_row(row)
 
     except HTTPException:
         raise
@@ -200,7 +215,7 @@ async def archive_post_to_library(
 async def get_library_item(
     library_id: str,
     request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get a specific library item by ID
@@ -209,17 +224,36 @@ async def get_library_item(
         # Verify authentication and get user data
         user_id, user_data = await verify_auth_and_get_user(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        result = await db.execute(
-            select(PostLibrary).where(PostLibrary.id == library_id)
+
+        supabase = get_supabase_service_client()
+        response = (
+            supabase.table("post_library")
+            .select("*")
+            .eq("id", library_id)
+            .maybe_single()
+            .execute()
         )
-        item = result.scalar_one_or_none()
-        
-        if not item or str(item.workspace_id) != workspace_id:
+
+        error = getattr(response, "error", None)
+        if error:
+            logger.error(
+                "supabase_get_library_item_error",
+                error=str(error),
+                library_id=library_id,
+                workspace_id=workspace_id,
+                user_id=user_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to fetch library item",
+            )
+
+        row = getattr(response, "data", None)
+        if not row or str(row.get("workspace_id")) != workspace_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Library item not found")
-        
-        return serialize_library_item(item)
-        
+
+        return serialize_library_row(row)
+
     except HTTPException:
         raise
     except Exception as e:
@@ -244,24 +278,72 @@ async def update_library_item(
         if user_data["workspace_id"] != update_request.workspace_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to workspace")
 
-        result = await db.execute(select(PostLibrary).where(PostLibrary.id == library_id))
-        item = result.scalar_one_or_none()
+        supabase = get_supabase_service_client()
 
-        if not item or str(item.workspace_id) != update_request.workspace_id:
+        # Ensure item exists and belongs to the workspace
+        fetch_response = (
+            supabase.table("post_library")
+            .select("id, workspace_id")
+            .eq("id", library_id)
+            .maybe_single()
+            .execute()
+        )
+        fetch_error = getattr(fetch_response, "error", None)
+        if fetch_error:
+            logger.error(
+                "supabase_get_library_item_for_update_error",
+                error=str(fetch_error),
+                library_id=library_id,
+                workspace_id=update_request.workspace_id,
+                user_id=user_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update library item",
+            )
+
+        existing = getattr(fetch_response, "data", None)
+        if not existing or str(existing.get("workspace_id")) != update_request.workspace_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Library item not found")
 
-        item.title = update_request.title
-        item.content = update_request.content
-        item.post_type = update_request.type
-        item.platforms = update_request.tags or []
-        item.updated_at = datetime.utcnow()
+        update_data = {
+            "title": update_request.title,
+            "content": update_request.content,
+            "post_type": update_request.type,
+            "platforms": update_request.tags or [],
+            "updated_at": datetime.utcnow(),
+        }
 
-        await db.commit()
-        await db.refresh(item)
+        response = (
+            supabase.table("post_library")
+            .update(update_data)
+            .eq("id", library_id)
+            .eq("workspace_id", update_request.workspace_id)
+            .maybe_single()
+            .execute()
+        )
+
+        error = getattr(response, "error", None)
+        if error:
+            logger.error(
+                "supabase_update_library_item_error",
+                error=str(error),
+                library_id=library_id,
+                workspace_id=update_request.workspace_id,
+                user_id=user_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update library item",
+            )
+
+        row = getattr(response, "data", None)
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Library item not found")
 
         logger.info("library_item_updated", library_id=library_id, workspace_id=update_request.workspace_id)
 
-        return serialize_library_item(item)
+        return serialize_library_row(row)
 
     except HTTPException:
         raise
@@ -284,14 +366,55 @@ async def delete_library_item(
         user_id, user_data = await require_editor_or_admin_role(request, db)
         workspace_id = user_data["workspace_id"]
 
-        result = await db.execute(select(PostLibrary).where(PostLibrary.id == library_id))
-        item = result.scalar_one_or_none()
+        supabase = get_supabase_service_client()
 
-        if not item or str(item.workspace_id) != workspace_id:
+        # Ensure item exists and belongs to the workspace
+        fetch_response = (
+            supabase.table("post_library")
+            .select("id, workspace_id")
+            .eq("id", library_id)
+            .maybe_single()
+            .execute()
+        )
+        fetch_error = getattr(fetch_response, "error", None)
+        if fetch_error:
+            logger.error(
+                "supabase_get_library_item_for_delete_error",
+                error=str(fetch_error),
+                library_id=library_id,
+                workspace_id=workspace_id,
+                user_id=user_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete library item",
+            )
+
+        existing = getattr(fetch_response, "data", None)
+        if not existing or str(existing.get("workspace_id")) != workspace_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Library item not found")
 
-        await db.delete(item)
-        await db.commit()
+        response = (
+            supabase.table("post_library")
+            .delete()
+            .eq("id", library_id)
+            .eq("workspace_id", workspace_id)
+            .execute()
+        )
+
+        error = getattr(response, "error", None)
+        if error:
+            logger.error(
+                "supabase_delete_library_item_error",
+                error=str(error),
+                library_id=library_id,
+                workspace_id=workspace_id,
+                user_id=user_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete library item",
+            )
 
         logger.info("library_item_deleted", library_id=library_id, workspace_id=workspace_id)
 
@@ -320,13 +443,28 @@ async def get_library_stats(
         user_id, user_data = await verify_auth_and_get_user(request, db)
         workspace_id = user_data["workspace_id"]
 
-        result = await db.execute(select(PostLibrary).where(PostLibrary.workspace_id == workspace_id))
-        items = result.scalars().all()
+        supabase = get_supabase_service_client()
+        response = (
+            supabase.table("post_library")
+            .select("platforms")
+            .eq("workspace_id", workspace_id)
+            .execute()
+        )
 
-        total = len(items)
+        error = getattr(response, "error", None)
+        if error:
+            logger.error("supabase_get_library_stats_error", error=str(error), workspace_id=workspace_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to fetch library stats",
+            )
+
+        rows = getattr(response, "data", None) or []
+
+        total = len(rows)
         platform_counts: dict[str, int] = {}
-        for item in items:
-            for tag in item.platforms or []:
+        for row in rows:
+            for tag in row.get("platforms") or []:
                 platform_counts[tag] = platform_counts.get(tag, 0) + 1
 
         stats = {

@@ -1,0 +1,45 @@
+{
+  "name": "social-media-os",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "migrate:fix-role": "node scripts/migrate-fix-role.js",
+    "migrate:info": "echo 'See scripts/MIGRATION_INSTRUCTIONS.md for detailed migration guide'"
+  },
+  "dependencies": {
+    "@google/genai": "^1.28.0",
+    "@modelcontextprotocol/sdk": "^1.21.1",
+    "@openai/agents": "^0.3.0",
+    "@react-email/components": "^0.5.7",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.78.0",
+    "autoprefixer": "^10.4.21",
+    "idb": "^8.0.3",
+    "lucide-react": "^0.417.0",
+    "next": "^16.0.1",
+    "openai": "^6.8.1",
+    "postcss": "^8.5.6",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-email": "^4.3.2",
+    "react-hot-toast": "^2.6.0",
+    "recharts": "^3.3.0",
+    "resend": "^6.4.0",
+    "tailwindcss": "^4.1.16",
+    "twitter-api-v2": "^1.27.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.16",
+    "@types/node": "^22.14.0",
+    "@types/react": "19.2.2",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

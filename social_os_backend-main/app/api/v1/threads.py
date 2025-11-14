@@ -3,9 +3,7 @@ Content Threads API endpoints
 """
 from typing import List
 from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 # TODO: ThreadService needs to be implemented in new structure
 # from app.services.thread_service import ThreadService
@@ -22,21 +20,19 @@ import structlog
 logger = structlog.get_logger()
 router = APIRouter()
 
-
 @router.get("", response_model=ThreadListResponse)
 async def get_threads(
     request: Request,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    include_deleted: bool = Query(False),
-    db: AsyncSession = Depends(get_async_db)
+    include_deleted: bool = Query(False)
 ):
     """
     Get all threads for workspace
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.get_workspace_threads
@@ -74,19 +70,17 @@ async def get_threads(
             detail=str(e)
         )
 
-
 @router.post("", response_model=ThreadResponse, status_code=201)
 async def create_thread(
     thread_request: CreateThreadRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Create a new thread
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.create_thread
@@ -121,19 +115,17 @@ async def create_thread(
             detail=str(e)
         )
 
-
 @router.get("/{thread_id}", response_model=ThreadResponse)
 async def get_thread(
     thread_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get thread by ID
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.get_thread_by_id
@@ -165,20 +157,18 @@ async def get_thread(
             detail="Thread not found"
         )
 
-
 @router.put("/{thread_id}/title", response_model=ThreadResponse)
 async def update_thread_title(
     thread_id: str,
     title_request: UpdateThreadTitleRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Update thread title
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.update_thread_title
@@ -212,20 +202,18 @@ async def update_thread_title(
             detail="Thread not found"
         )
 
-
 @router.post("/{thread_id}/messages", response_model=ThreadResponse)
 async def add_message(
     thread_id: str,
     message_request: AddMessageRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Add a message to thread
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.add_message_to_thread
@@ -264,20 +252,18 @@ async def add_message(
             detail="Thread not found"
         )
 
-
 @router.put("/{thread_id}/messages", response_model=ThreadResponse)
 async def update_messages(
     thread_id: str,
     messages_request: UpdateMessagesRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Update all messages in thread
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.update_thread_messages
@@ -313,19 +299,17 @@ async def update_messages(
             detail="Thread not found"
         )
 
-
 @router.delete("/{thread_id}", status_code=204)
 async def delete_thread(
     thread_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Delete (soft delete) a thread
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.delete_thread
@@ -352,19 +336,17 @@ async def delete_thread(
             detail="Thread not found"
         )
 
-
 @router.post("/{thread_id}/restore", response_model=ThreadResponse)
 async def restore_thread(
     thread_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Restore a deleted thread
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.restore_thread
@@ -397,19 +379,17 @@ async def restore_thread(
             detail="Thread not found"
         )
 
-
 @router.get("/recent", response_model=List[ThreadResponse])
 async def get_recent_threads(
     request: Request,
-    limit: int = Query(10, ge=1, le=50),
-    db: AsyncSession = Depends(get_async_db)
+    limit: int = Query(10, ge=1, le=50)
 ):
     """
     Get recent threads for workspace
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement ThreadService.get_recent_threads

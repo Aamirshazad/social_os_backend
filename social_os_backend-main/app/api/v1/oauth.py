@@ -5,10 +5,8 @@ Production-ready implementation using Supabase auth helper and CredentialService
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user
 from app.application.services.credential_service import CredentialService
 from app.config import settings
@@ -22,11 +20,9 @@ from app.infrastructure.external.platforms.youtube import YouTubeOAuthHandler
 logger = structlog.get_logger()
 router = APIRouter()
 
-
 def _build_state(workspace_id: str, platform: str) -> str:
     """Build OAuth state parameter that encodes workspace context."""
     return f"{workspace_id}:{platform}"
-
 
 def _parse_state(state: str, expected_platform: str) -> str:
     """Parse and validate state, returning workspace_id or raising HTTPException."""
@@ -35,26 +31,21 @@ def _parse_state(state: str, expected_platform: str) -> str:
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid state parameter",
-        )
+            detail="Invalid state parameter")
 
     if platform != expected_platform:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid state parameter",
-        )
+            detail="Invalid state parameter")
 
     return workspace_id
 
-
 async def _store_credentials(
-    db: AsyncSession,
     workspace_id: str,
     platform: str,
     token_data: Dict[str, Any],
     platform_user_id: str | None = None,
-    platform_username: str | None = None,
-) -> None:
+    platform_username: str | None = None) -> None:
     """Helper to persist OAuth tokens via CredentialService."""
     scopes_raw = token_data.get("scope")
     scopes = None
@@ -62,7 +53,6 @@ async def _store_credentials(
         scopes = scopes_raw.split(" ")
 
     await CredentialService.store_platform_credentials(
-        db=db,
         workspace_id=workspace_id,
         platform=platform,
         access_token=token_data["access_token"],
@@ -73,25 +63,20 @@ async def _store_credentials(
         additional_data={
             "token_type": token_data.get("token_type"),
         },
-        token_expires_at=str(token_data.get("expires_in")) if token_data.get("expires_in") else None,
-    )
-
+        token_expires_at=str(token_data.get("expires_in")) if token_data.get("expires_in") else None)
 
 # ---------------------------------------------------------------------------
 # Twitter
 # ---------------------------------------------------------------------------
 
-
 @router.get("/twitter/authorize")
 async def twitter_authorize(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Start Twitter OAuth flow for the current workspace."""
     if not settings.TWITTER_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Twitter OAuth not configured")
 
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
     state = _build_state(workspace_id, "twitter")
 
@@ -113,13 +98,10 @@ async def twitter_authorize(
         },
     }
 
-
 @router.get("/twitter/callback")
 async def twitter_callback(
     code: str = Query(...),
-    state: str = Query(...),
-    db: AsyncSession = Depends(get_async_db),
-):
+    state: str = Query(...)):
     """Twitter OAuth callback: exchange code for token and store credentials."""
     if not settings.TWITTER_CLIENT_ID or not settings.TWITTER_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Twitter OAuth not configured")
@@ -132,10 +114,9 @@ async def twitter_callback(
             code=code,
             client_id=settings.TWITTER_CLIENT_ID,
             client_secret=settings.TWITTER_CLIENT_SECRET,
-            redirect_uri=f"{settings.CALLBACK_URL}/twitter",
-        )
+            redirect_uri=f"{settings.CALLBACK_URL}/twitter")
 
-        await _store_credentials(db, workspace_id, "twitter", token_data)
+        await _store_credentials(workspace_id, "twitter", token_data)
 
         logger.info("twitter_oauth_success", workspace_id=workspace_id)
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_success=twitter"
@@ -145,17 +126,14 @@ async def twitter_callback(
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_error=oauth_error"
         return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-
 @router.get("/linkedin/authorize")
 async def linkedin_authorize(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Start LinkedIn OAuth flow for the current workspace."""
     if not settings.LINKEDIN_CLIENT_ID:
         raise HTTPException(status_code=400, detail="LinkedIn OAuth not configured")
 
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
     state = _build_state(workspace_id, "linkedin")
 
@@ -177,13 +155,10 @@ async def linkedin_authorize(
         },
     }
 
-
 @router.get("/linkedin/callback")
 async def linkedin_callback(
     code: str = Query(...),
-    state: str = Query(...),
-    db: AsyncSession = Depends(get_async_db),
-):
+    state: str = Query(...)):
     """LinkedIn OAuth callback: exchange code for token and store credentials."""
     if not settings.LINKEDIN_CLIENT_ID or not settings.LINKEDIN_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="LinkedIn OAuth not configured")
@@ -196,10 +171,9 @@ async def linkedin_callback(
             code=code,
             client_id=settings.LINKEDIN_CLIENT_ID,
             client_secret=settings.LINKEDIN_CLIENT_SECRET,
-            redirect_uri=f"{settings.CALLBACK_URL}/linkedin",
-        )
+            redirect_uri=f"{settings.CALLBACK_URL}/linkedin")
 
-        await _store_credentials(db, workspace_id, "linkedin", token_data)
+        await _store_credentials(workspace_id, "linkedin", token_data)
 
         logger.info("linkedin_oauth_success", workspace_id=workspace_id)
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_success=linkedin"
@@ -209,17 +183,14 @@ async def linkedin_callback(
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_error=oauth_error"
         return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-
 @router.get("/facebook/authorize")
 async def facebook_authorize(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Start Facebook OAuth flow for the current workspace."""
     if not settings.FACEBOOK_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Facebook OAuth not configured")
 
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
     state = _build_state(workspace_id, "facebook")
 
@@ -241,13 +212,10 @@ async def facebook_authorize(
         },
     }
 
-
 @router.get("/facebook/callback")
 async def facebook_callback(
     code: str = Query(...),
-    state: str = Query(...),
-    db: AsyncSession = Depends(get_async_db),
-):
+    state: str = Query(...)):
     """Facebook OAuth callback: exchange code for token and store credentials."""
     if not settings.FACEBOOK_CLIENT_ID or not settings.FACEBOOK_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Facebook OAuth not configured")
@@ -260,10 +228,9 @@ async def facebook_callback(
             code=code,
             client_id=settings.FACEBOOK_CLIENT_ID,
             client_secret=settings.FACEBOOK_CLIENT_SECRET,
-            redirect_uri=f"{settings.CALLBACK_URL}/facebook",
-        )
+            redirect_uri=f"{settings.CALLBACK_URL}/facebook")
 
-        await _store_credentials(db, workspace_id, "facebook", token_data)
+        await _store_credentials(workspace_id, "facebook", token_data)
 
         logger.info("facebook_oauth_success", workspace_id=workspace_id)
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_success=facebook"
@@ -273,17 +240,14 @@ async def facebook_callback(
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_error=oauth_error"
         return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-
 @router.get("/youtube/authorize")
 async def youtube_authorize(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Start YouTube OAuth flow for the current workspace."""
     if not settings.YOUTUBE_CLIENT_ID:
         raise HTTPException(status_code=400, detail="YouTube OAuth not configured")
 
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
     state = _build_state(workspace_id, "youtube")
 
@@ -307,13 +271,10 @@ async def youtube_authorize(
         },
     }
 
-
 @router.get("/youtube/callback")
 async def youtube_callback(
     code: str = Query(...),
-    state: str = Query(...),
-    db: AsyncSession = Depends(get_async_db),
-):
+    state: str = Query(...)):
     """YouTube OAuth callback: exchange code for token and store credentials."""
     if not settings.YOUTUBE_CLIENT_ID or not settings.YOUTUBE_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="YouTube OAuth not configured")
@@ -326,10 +287,9 @@ async def youtube_callback(
             code=code,
             client_id=settings.YOUTUBE_CLIENT_ID,
             client_secret=settings.YOUTUBE_CLIENT_SECRET,
-            redirect_uri=f"{settings.CALLBACK_URL}/youtube",
-        )
+            redirect_uri=f"{settings.CALLBACK_URL}/youtube")
 
-        await _store_credentials(db, workspace_id, "youtube", token_data)
+        await _store_credentials(workspace_id, "youtube", token_data)
 
         logger.info("youtube_oauth_success", workspace_id=workspace_id)
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_success=youtube"
@@ -339,17 +299,14 @@ async def youtube_callback(
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_error=oauth_error"
         return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-
 @router.get("/instagram/authorize")
 async def instagram_authorize(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Start Instagram OAuth flow for the current workspace (via Facebook OAuth)."""
     if not settings.FACEBOOK_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Instagram OAuth not configured")
 
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
     state = _build_state(workspace_id, "instagram")
 
@@ -371,13 +328,10 @@ async def instagram_authorize(
         },
     }
 
-
 @router.get("/instagram/callback")
 async def instagram_callback(
     code: str = Query(...),
-    state: str = Query(...),
-    db: AsyncSession = Depends(get_async_db),
-):
+    state: str = Query(...)):
     """Instagram OAuth callback: exchange code for token and store credentials."""
     if not settings.FACEBOOK_CLIENT_ID or not settings.FACEBOOK_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Instagram OAuth not configured")
@@ -390,10 +344,9 @@ async def instagram_callback(
             code=code,
             client_id=settings.FACEBOOK_CLIENT_ID,
             client_secret=settings.FACEBOOK_CLIENT_SECRET,
-            redirect_uri=f"{settings.CALLBACK_URL}/instagram",
-        )
+            redirect_uri=f"{settings.CALLBACK_URL}/instagram")
 
-        await _store_credentials(db, workspace_id, "instagram", token_data)
+        await _store_credentials(workspace_id, "instagram", token_data)
 
         logger.info("instagram_oauth_success", workspace_id=workspace_id)
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_success=instagram"
@@ -403,17 +356,14 @@ async def instagram_callback(
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_error=oauth_error"
         return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
 
-
 @router.get("/tiktok/authorize")
 async def tiktok_authorize(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Start TikTok OAuth flow for the current workspace."""
     if not settings.TIKTOK_CLIENT_ID:
         raise HTTPException(status_code=400, detail="TikTok OAuth not configured")
 
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
     state = _build_state(workspace_id, "tiktok")
 
@@ -435,13 +385,10 @@ async def tiktok_authorize(
         },
     }
 
-
 @router.get("/tiktok/callback")
 async def tiktok_callback(
     code: str = Query(...),
-    state: str = Query(...),
-    db: AsyncSession = Depends(get_async_db),
-):
+    state: str = Query(...)):
     """TikTok OAuth callback: exchange code for token and store credentials."""
     if not settings.TIKTOK_CLIENT_ID or not settings.TIKTOK_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="TikTok OAuth not configured")
@@ -454,10 +401,9 @@ async def tiktok_callback(
             code=code,
             client_id=settings.TIKTOK_CLIENT_ID,
             client_secret=settings.TIKTOK_CLIENT_SECRET,
-            redirect_uri=f"{settings.CALLBACK_URL}/tiktok",
-        )
+            redirect_uri=f"{settings.CALLBACK_URL}/tiktok")
 
-        await _store_credentials(db, workspace_id, "tiktok", token_data)
+        await _store_credentials(workspace_id, "tiktok", token_data)
 
         logger.info("tiktok_oauth_success", workspace_id=workspace_id)
         redirect_url = f"{settings.FRONTEND_URL}/settings?tab=accounts&oauth_success=tiktok"

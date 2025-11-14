@@ -3,18 +3,14 @@ from typing import List, Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
-from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 from app.core.supabase import get_supabase_service_client
 import structlog
 
-
 logger = structlog.get_logger()
 router = APIRouter()
-
 
 class CreateLibraryItemRequest(BaseModel):
     """Request schema matching frontend CreateLibraryItemRequest"""
@@ -23,7 +19,6 @@ class CreateLibraryItemRequest(BaseModel):
     content: dict
     type: str
     tags: Optional[List[str]] = None
-
 
 class LibraryItemResponse(BaseModel):
     """Response schema matching frontend LibraryItem type"""
@@ -36,7 +31,6 @@ class LibraryItemResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-
 class PaginatedLibraryResponse(BaseModel):
     """Paginated response wrapper for library items"""
     items: List[LibraryItemResponse]
@@ -44,7 +38,6 @@ class PaginatedLibraryResponse(BaseModel):
     page: int
     page_size: int
     pages: int
-
 
 def serialize_library_row(row: dict) -> dict:
     """Serialize Supabase row dict to LibraryItemResponse-compatible dict."""
@@ -59,16 +52,13 @@ def serialize_library_row(row: dict) -> dict:
         "updated_at": row.get("updated_at"),
     }
 
-
 @router.get("", response_model=PaginatedLibraryResponse)
 async def get_library_posts(
     request: Request,
     workspace_id: str = Query(..., description="Workspace ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    type: Optional[str] = Query(None, description="Filter by item type"),
-    db: AsyncSession = Depends(get_async_db),
-):
+    type: Optional[str] = Query(None, description="Filter by item type")):
     """Get archived posts from library with pagination.
 
     Query Parameters:
@@ -78,7 +68,7 @@ async def get_library_posts(
     - type: Filter by item type (e.g., "published_post")
     """
     try:
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
 
         if user_data["workspace_id"] != workspace_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to workspace")
@@ -118,8 +108,7 @@ async def get_library_posts(
             logger.error("supabase_get_library_posts_error", error=str(e), workspace_id=workspace_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to fetch library items",
-            )
+                detail="Failed to fetch library items")
 
     except HTTPException:
         raise
@@ -127,23 +116,19 @@ async def get_library_posts(
         logger.error("get_library_posts_error", error=str(e), workspace_id=workspace_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch library items",
-        )
-
+            detail="Failed to fetch library items")
 
 @router.post("", response_model=LibraryItemResponse, status_code=201)
 async def archive_post_to_library(
     archive_request: CreateLibraryItemRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Archive a published post to library.
 
     This matches the frontend libraryService.createLibraryItem contract and is used
     by the main app's publish flow to store published posts.
     """
     try:
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
 
         if user_data["workspace_id"] != archive_request.workspace_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to workspace")
@@ -174,30 +159,25 @@ async def archive_post_to_library(
                 "supabase_archive_post_error",
                 error=str(error),
                 workspace_id=archive_request.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to archive post to library",
-            )
+                detail="Failed to archive post to library")
 
         row = getattr(response, "data", None)
         if not row:
             logger.error(
                 "supabase_archive_post_empty_response",
                 workspace_id=archive_request.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to archive post to library",
-            )
+                detail="Failed to archive post to library")
 
         logger.info(
             "post_archived",
             library_id=str(row.get("id")),
-            workspace_id=archive_request.workspace_id,
-        )
+            workspace_id=archive_request.workspace_id)
 
         return serialize_library_row(row)
 
@@ -207,22 +187,18 @@ async def archive_post_to_library(
         logger.error("archive_post_error", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to archive post to library",
-        )
-
+            detail="Failed to archive post to library")
 
 @router.get("/{library_id}", response_model=LibraryItemResponse)
 async def get_library_item(
     library_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """
     Get a specific library item by ID
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
 
         supabase = get_supabase_service_client()
@@ -241,12 +217,10 @@ async def get_library_item(
                 error=str(error),
                 library_id=library_id,
                 workspace_id=workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to fetch library item",
-            )
+                detail="Failed to fetch library item")
 
         row = getattr(response, "data", None)
         if not row or str(row.get("workspace_id")) != workspace_id:
@@ -260,20 +234,16 @@ async def get_library_item(
         logger.error("get_library_item_error", error=str(e), library_id=library_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch library item",
-        )
-
+            detail="Failed to fetch library item")
 
 @router.put("/{library_id}", response_model=LibraryItemResponse)
 async def update_library_item(
     library_id: str,
     update_request: CreateLibraryItemRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Update a library item (title/content/type/tags)."""
     try:
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
 
         if user_data["workspace_id"] != update_request.workspace_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to workspace")
@@ -295,12 +265,10 @@ async def update_library_item(
                 error=str(fetch_error),
                 library_id=library_id,
                 workspace_id=update_request.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update library item",
-            )
+                detail="Failed to update library item")
 
         existing = getattr(fetch_response, "data", None)
         if not existing or str(existing.get("workspace_id")) != update_request.workspace_id:
@@ -330,12 +298,10 @@ async def update_library_item(
                 error=str(error),
                 library_id=library_id,
                 workspace_id=update_request.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update library item",
-            )
+                detail="Failed to update library item")
 
         row = getattr(response, "data", None)
         if not row:
@@ -351,19 +317,15 @@ async def update_library_item(
         logger.error("update_library_item_error", error=str(e), library_id=library_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update library item",
-        )
-
+            detail="Failed to update library item")
 
 @router.delete("/{library_id}", status_code=204)
 async def delete_library_item(
     library_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Delete a library item"""
     try:
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
 
         supabase = get_supabase_service_client()
@@ -383,12 +345,10 @@ async def delete_library_item(
                 error=str(fetch_error),
                 library_id=library_id,
                 workspace_id=workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete library item",
-            )
+                detail="Failed to delete library item")
 
         existing = getattr(fetch_response, "data", None)
         if not existing or str(existing.get("workspace_id")) != workspace_id:
@@ -409,12 +369,10 @@ async def delete_library_item(
                 error=str(error),
                 library_id=library_id,
                 workspace_id=workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete library item",
-            )
+                detail="Failed to delete library item")
 
         logger.info("library_item_deleted", library_id=library_id, workspace_id=workspace_id)
 
@@ -426,21 +384,17 @@ async def delete_library_item(
         logger.error("delete_library_item_error", error=str(e), library_id=library_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete library item",
-        )
-
+            detail="Failed to delete library item")
 
 @router.get("/stats/summary")
 async def get_library_stats(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """Get library statistics summary.
 
     Returns counts by platform, total posts, etc.
     """
     try:
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
 
         supabase = get_supabase_service_client()
@@ -456,8 +410,7 @@ async def get_library_stats(
             logger.error("supabase_get_library_stats_error", error=str(error), workspace_id=workspace_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to fetch library stats",
-            )
+                detail="Failed to fetch library stats")
 
         rows = getattr(response, "data", None) or []
 
@@ -481,5 +434,4 @@ async def get_library_stats(
         logger.error("get_library_stats_error", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+            detail=str(e))

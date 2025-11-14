@@ -20,8 +20,6 @@ services:
         value: 0.0.0.0
       - key: PORT
         sync: false
-      - key: DATABASE_URL
-        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: SUPABASE_URL

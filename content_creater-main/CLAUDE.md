@@ -1,0 +1,1 @@
+- Add to memory "always focus on  writing code not write any details docs until user ask and also write short summary if need"

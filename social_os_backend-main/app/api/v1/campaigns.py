@@ -3,11 +3,9 @@ Campaign API endpoints - Campaign management
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 # TODO: CampaignService needs to be implemented in new structure
 # from app.services.campaign_service import CampaignService
@@ -15,7 +13,6 @@ import structlog
 
 logger = structlog.get_logger()
 router = APIRouter()
-
 
 class CampaignCreate(BaseModel):
     """Request schema for creating a campaign"""
@@ -28,7 +25,6 @@ class CampaignCreate(BaseModel):
     budget: Optional[float] = None
     status: str = Field(default="active")
 
-
 class CampaignUpdate(BaseModel):
     """Request schema for updating a campaign"""
     name: Optional[str] = Field(None, min_length=1, max_length=200)
@@ -39,7 +35,6 @@ class CampaignUpdate(BaseModel):
     target_audience: Optional[str] = None
     budget: Optional[float] = None
     status: Optional[str] = None
-
 
 class CampaignResponse(BaseModel):
     """Response schema for campaign"""
@@ -59,14 +54,12 @@ class CampaignResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
 @router.get("", response_model=List[CampaignResponse])
 async def get_campaigns(
     request: Request,
     status: Optional[str] = None,
     limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_async_db)
+    offset: int = Query(0, ge=0)
 ):
     """
     Get all campaigns for workspace
@@ -78,7 +71,7 @@ async def get_campaigns(
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement CampaignService.get_campaigns
@@ -104,19 +97,17 @@ async def get_campaigns(
             detail=str(e)
         )
 
-
 @router.post("", response_model=CampaignResponse, status_code=201)
 async def create_campaign(
     campaign_data: CampaignCreate,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Create a new campaign
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement CampaignService.create_campaign
@@ -143,19 +134,17 @@ async def create_campaign(
             detail=str(e)
         )
 
-
 @router.get("/{campaign_id}", response_model=CampaignResponse)
 async def get_campaign(
     campaign_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get a specific campaign by ID
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement CampaignService.get_campaign_by_id
@@ -179,20 +168,18 @@ async def get_campaign(
             detail=str(e)
         )
 
-
 @router.put("/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign(
     campaign_id: str,
     campaign_data: CampaignUpdate,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Update a campaign
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement CampaignService.update_campaign
@@ -219,19 +206,17 @@ async def update_campaign(
             detail=str(e)
         )
 
-
 @router.delete("/{campaign_id}", status_code=204)
 async def delete_campaign(
     campaign_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Delete a campaign
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement CampaignService.delete_campaign
@@ -252,19 +237,17 @@ async def delete_campaign(
             detail=str(e)
         )
 
-
 @router.get("/{campaign_id}/posts")
 async def get_campaign_posts(
     campaign_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get all posts for a campaign
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         from app.application.services.content.post_service import PostService
@@ -294,19 +277,17 @@ async def get_campaign_posts(
             detail=str(e)
         )
 
-
 @router.get("/{campaign_id}/stats")
 async def get_campaign_stats(
     campaign_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get campaign statistics
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         # TODO: Implement CampaignService.get_campaign_stats

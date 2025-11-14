@@ -4,8 +4,6 @@ Replaces old middleware and dependencies with simple Supabase auth
 """
 from typing import Dict, Any, Tuple
 from fastapi import Request, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 import structlog
 
 from app.application.services.auth.authentication_service import AuthenticationService
@@ -14,13 +12,12 @@ from app.core.supabase import get_supabase_service_client
 logger = structlog.get_logger()
 
 
-async def verify_auth_and_get_user(request: Request, db: AsyncSession) -> Tuple[str, Dict[str, Any]]:
+async def verify_auth_and_get_user(request: Request) -> Tuple[str, Dict[str, Any]]:
     """
     Verify Supabase token and get user data from database
     
     Args:
         request: FastAPI request object
-        db: Database session
         
     Returns:
         Tuple of (user_id, user_data) where user_data contains workspace_id and role
@@ -88,13 +85,12 @@ async def verify_auth_and_get_user(request: Request, db: AsyncSession) -> Tuple[
         )
 
 
-async def require_admin_role(request: Request, db: AsyncSession) -> Tuple[str, Dict[str, Any]]:
+async def require_admin_role(request: Request) -> Tuple[str, Dict[str, Any]]:
     """
     Verify authentication and require admin role
     
     Args:
         request: FastAPI request object
-        db: Database session
         
     Returns:
         Tuple of (user_id, user_data)
@@ -102,7 +98,7 @@ async def require_admin_role(request: Request, db: AsyncSession) -> Tuple[str, D
     Raises:
         HTTPException: If authentication fails or user is not admin
     """
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     if user_data["role"] != "admin":
         raise HTTPException(
@@ -113,13 +109,12 @@ async def require_admin_role(request: Request, db: AsyncSession) -> Tuple[str, D
     return user_id, user_data
 
 
-async def require_editor_or_admin_role(request: Request, db: AsyncSession) -> Tuple[str, Dict[str, Any]]:
+async def require_editor_or_admin_role(request: Request) -> Tuple[str, Dict[str, Any]]:
     """
     Verify authentication and require editor or admin role
     
     Args:
         request: FastAPI request object
-        db: Database session
         
     Returns:
         Tuple of (user_id, user_data)
@@ -127,7 +122,7 @@ async def require_editor_or_admin_role(request: Request, db: AsyncSession) -> Tu
     Raises:
         HTTPException: If authentication fails or user doesn't have required role
     """
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     if user_data["role"] not in ["admin", "editor"]:
         raise HTTPException(

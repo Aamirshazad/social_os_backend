@@ -288,28 +288,6 @@ async def test_supabase():
             "error": str(e)
         }
 
-# Database test endpoint
-@app.get("/api/v1/test/db", tags=["Test"])
-async def test_database():
-    """Test database connectivity without authentication"""
-    try:
-        from app.database import async_engine
-        async with async_engine.connect() as conn:
-            result = await conn.execute("SELECT 1 as test")
-            row = result.fetchone()
-            return {
-                "status": "success",
-                "message": "Database connection successful",
-                "test_result": row[0] if row else None
-            }
-    except Exception as e:
-        logger.error("database_test_failed", error=str(e))
-        return {
-            "status": "error",
-            "message": f"Database connection failed: {str(e)}"
-        }
-
-
 # Database configuration debug endpoint
 @app.get("/debug-db-config")
 async def debug_database_config():

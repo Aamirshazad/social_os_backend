@@ -3,10 +3,8 @@ Activity Log API endpoints
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
-from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_admin_role
 # TODO: ActivityService needs to be implemented in new structure
 # from app.services.activity_service import ActivityService
@@ -14,7 +12,6 @@ import structlog
 
 logger = structlog.get_logger()
 router = APIRouter()
-
 
 @router.get("")
 async def get_activity(
@@ -24,8 +21,7 @@ async def get_activity(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_async_db)
+    offset: int = Query(0, ge=0)
 ):
     """
     Get workspace activity log
@@ -42,7 +38,7 @@ async def get_activity(
     """
     try:
         # Verify authentication and require admin role
-        current_user_id, user_data = await require_admin_role(request, db)
+        current_user_id, user_data = await require_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
         # Parse dates

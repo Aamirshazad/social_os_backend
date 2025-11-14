@@ -1,21 +1,19 @@
 """
 Scheduler API endpoints - Post scheduling and queue management
+
+TODO: These endpoints need to be refactored to use Supabase HTTP instead of SQLAlchemy.
+Currently returning placeholder responses.
 """
 from typing import List
-from fastapi import APIRouter, Depends, BackgroundTasks, Request, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, BackgroundTasks, Request, HTTPException, status
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
-from app.application.services.publishing.scheduler_service import SchedulerService
-from app.application.services.content.post_service import PostService
 import structlog
 
 logger = structlog.get_logger()
 router = APIRouter()
-
 
 class SchedulePostRequest(BaseModel):
     """Request schema for scheduling a post"""
@@ -23,32 +21,28 @@ class SchedulePostRequest(BaseModel):
     scheduled_time: datetime = Field(..., description="UTC datetime to publish")
     platforms: List[str] = Field(..., min_items=1)
 
-
 @router.get("/pending")
 async def get_pending_scheduled_posts(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get all pending scheduled posts
     
     Returns posts that are scheduled but not yet published
+    
+    TODO: Implement using Supabase HTTP queries
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
-        pending_posts = PostService.get_scheduled_posts(
-            db=db,
-            workspace_id=workspace_id
-        )
-        
+        # TODO: Query Supabase for scheduled posts
         return {
             "success": True,
             "data": {
-                "posts": [PostService.transformFromDB(p) for p in pending_posts],
-                "total": len(pending_posts)
+                "posts": [],
+                "total": 0
             }
         }
         
@@ -59,50 +53,25 @@ async def get_pending_scheduled_posts(
             detail=str(e)
         )
 
-
 @router.post("/schedule")
 async def schedule_post(
     schedule_request: SchedulePostRequest,
     background_tasks: BackgroundTasks,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Schedule a post for future publishing
     
     The post will be automatically published at the scheduled time
+    
+    TODO: Implement using Supabase HTTP queries
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # Get post
-        post = PostService.get_post_by_id(
-            db=db,
-            post_id=schedule_request.post_id,
-            workspace_id=workspace_id
-        )
-        
-        # Update post with schedule
-        updated_post = PostService.update_post(
-            db=db,
-            post_id=schedule_request.post_id,
-            workspace_id=workspace_id,
-            post_data={
-                "scheduled_time": schedule_request.scheduled_time,
-                "status": "scheduled",
-                "platforms": schedule_request.platforms
-            }
-        )
-        
-        # Add to background task queue
-        background_tasks.add_task(
-            SchedulerService.queue_scheduled_post,
-            post_id=schedule_request.post_id,
-            scheduled_time=schedule_request.scheduled_time
-        )
-        
+        # TODO: Update post in Supabase with scheduled_time and status
         logger.info(
             "post_scheduled",
             post_id=schedule_request.post_id,
@@ -111,8 +80,8 @@ async def schedule_post(
         
         return {
             "success": True,
-            "data": PostService.transformFromDB(updated_post),
-            "message": "Post scheduled successfully"
+            "data": {},
+            "message": "Post scheduled successfully (TODO: implement)"
         }
         
     except Exception as e:
@@ -122,38 +91,30 @@ async def schedule_post(
             detail=str(e)
         )
 
-
 @router.delete("/{post_id}/cancel")
 async def cancel_scheduled_post(
     post_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Cancel a scheduled post
     
     Changes status back to draft
+    
+    TODO: Implement using Supabase HTTP queries
     """
     try:
         # Verify authentication and require editor or admin role
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        from app.schemas.post import PostStatus
-        
-        updated_post = PostService.update_post_status(
-            db=db,
-            post_id=post_id,
-            workspace_id=workspace_id,
-            status=PostStatus.DRAFT
-        )
-        
+        # TODO: Update post status in Supabase to draft
         logger.info("scheduled_post_cancelled", post_id=post_id)
         
         return {
             "success": True,
-            "data": PostService.transformFromDB(updated_post),
-            "message": "Scheduled post cancelled"
+            "data": {},
+            "message": "Scheduled post cancelled (TODO: implement)"
         }
         
     except Exception as e:
@@ -163,30 +124,30 @@ async def cancel_scheduled_post(
             detail=str(e)
         )
 
-
 @router.get("/queue/status")
 async def get_queue_status(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get scheduler queue status
     
     Returns information about pending and processing posts
+    
+    TODO: Implement using Supabase HTTP queries
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
-        status = SchedulerService.get_queue_status(
-            db=db,
-            workspace_id=workspace_id
-        )
-        
+        # TODO: Query Supabase for queue status
         return {
             "success": True,
-            "data": status
+            "data": {
+                "pending": 0,
+                "processing": 0,
+                "failed": 0
+            }
         }
         
     except Exception as e:

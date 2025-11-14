@@ -3,10 +3,8 @@ Platform API endpoints - Publishing and platform management
 """
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
-from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_admin_role
 from app.application.services.publishing import PublisherService as PublishingService
 from app.application.services.auth.authentication_service import AuthenticationService
@@ -16,7 +14,6 @@ import structlog
 logger = structlog.get_logger()
 router = APIRouter()
 
-
 class PublishRequest(BaseModel):
     """Request schema for publishing a post"""
     platform: str = Field(..., description="Platform name (twitter, linkedin, facebook, instagram)")
@@ -24,13 +21,11 @@ class PublishRequest(BaseModel):
     media_urls: List[str] = Field(default_factory=list)
     additional_params: Dict[str, Any] = Field(default_factory=dict)
 
-
 class MultiPlatformPublishRequest(BaseModel):
     """Request schema for publishing to multiple platforms"""
     platforms: List[str] = Field(..., min_items=1)
     content_by_platform: Dict[str, str] = Field(...)
     media_urls: List[str] = Field(default_factory=list)
-
 
 class VerifyCredentialsResponse(BaseModel):
     """Response schema for credential verification"""
@@ -39,12 +34,10 @@ class VerifyCredentialsResponse(BaseModel):
     username: str = None
     error: str = None
 
-
 @router.post("/publish")
 async def publish_to_platform(
     publish_request: PublishRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Publish content to a single platform
@@ -53,7 +46,7 @@ async def publish_to_platform(
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         result = await PublishingService.publish_to_platform(
@@ -85,12 +78,10 @@ async def publish_to_platform(
             detail=str(e)
         )
 
-
 @router.post("/publish/multiple")
 async def publish_to_multiple_platforms(
     publish_request: MultiPlatformPublishRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Publish content to multiple platforms concurrently
@@ -99,7 +90,7 @@ async def publish_to_multiple_platforms(
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
         results = await PublishingService.publish_to_multiple_platforms(
@@ -131,12 +122,10 @@ async def publish_to_multiple_platforms(
             detail=str(e)
         )
 
-
 @router.get("/{platform}/verify")
 async def verify_platform_credentials(
     platform: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Verify credentials for a platform
@@ -144,7 +133,7 @@ async def verify_platform_credentials(
     Returns account information if credentials are valid
     """
     # Verify authentication and get user data
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
     
     result = await PublishingService.verify_platform_credentials(
@@ -159,22 +148,19 @@ async def verify_platform_credentials(
         "platform": platform
     }
 
-
 @router.get("/credentials/status")
 async def get_credentials_status(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """Get status of all platform credentials for the current workspace."""
     # Verify authentication and get user data
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     workspace_id = user_data["workspace_id"]
 
     # Use async credential service helper
     credentials = await CredentialService.get_all_workspace_credentials(
         db=db,
-        workspace_id=workspace_id,
-    )
+        workspace_id=workspace_id)
 
     # Map to a simple status list the frontend expects
     status_list = [
@@ -192,36 +178,31 @@ async def get_credentials_status(
         "data": status_list,
     }
 
-
 @router.delete("/{platform}/disconnect")
 async def disconnect_platform(
     platform: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """Disconnect a platform by deleting its credentials for the current workspace."""
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
 
         deleted = await CredentialService.delete_platform_credentials(
             db=db,
             workspace_id=workspace_id,
-            platform=platform,
-        )
+            platform=platform)
 
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Credentials not found",
-            )
+                detail="Credentials not found")
 
         logger.info(
             "platform_disconnected",
             platform=platform,
-            workspace_id=workspace_id,
-        )
+            workspace_id=workspace_id)
 
         return {
             "success": True,
@@ -234,9 +215,7 @@ async def disconnect_platform(
         logger.error("disconnect_error", platform=platform, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to disconnect platform",
-        )
-
+            detail="Failed to disconnect platform")
 
 # Facebook-specific endpoints
 class FacebookPostRequest(BaseModel):
@@ -245,7 +224,6 @@ class FacebookPostRequest(BaseModel):
     media_urls: List[str] = Field(default_factory=list)
     page_id: str = Field(None, description="Facebook page ID (optional)")
 
-
 class FacebookScheduleRequest(BaseModel):
     """Request schema for Facebook scheduled post"""
     content: str = Field(..., min_length=1, max_length=63206)
@@ -253,12 +231,10 @@ class FacebookScheduleRequest(BaseModel):
     media_urls: List[str] = Field(default_factory=list)
     page_id: str = Field(None, description="Facebook page ID (optional)")
 
-
 @router.post("/facebook/post")
 async def facebook_post(
     facebook_request: FacebookPostRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Post content to Facebook
@@ -296,12 +272,10 @@ async def facebook_post(
         logger.error("facebook_post_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/facebook/schedule")
 async def facebook_schedule_post(
     facebook_request: FacebookScheduleRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Schedule a Facebook post
@@ -340,12 +314,10 @@ async def facebook_schedule_post(
         logger.error("facebook_schedule_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/facebook/upload-media")
 async def facebook_upload_media(
     media_url: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Upload media to Facebook
@@ -381,13 +353,10 @@ async def facebook_upload_media(
         logger.error("facebook_upload_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/facebook/post/{post_id}/metrics")
 async def facebook_post_metrics(
     post_id: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get Facebook post analytics
@@ -421,12 +390,9 @@ async def facebook_post_metrics(
         logger.error("facebook_metrics_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/facebook/verify")
 async def facebook_verify_credentials(
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Verify Facebook credentials
@@ -456,14 +422,12 @@ async def facebook_verify_credentials(
         logger.error("facebook_verify_error", error=str(e))
         return {"valid": False, "error": str(e)}
 
-
 # Instagram-specific endpoints
 class InstagramPostRequest(BaseModel):
     """Request schema for Instagram post"""
     content: str = Field(..., min_length=1, max_length=2200)
     media_urls: List[str] = Field(..., min_items=1, description="Instagram requires at least one media item")
     instagram_account_id: str = Field(..., description="Instagram business account ID")
-
 
 class InstagramScheduleRequest(BaseModel):
     """Request schema for Instagram scheduled post"""
@@ -472,12 +436,10 @@ class InstagramScheduleRequest(BaseModel):
     media_urls: List[str] = Field(..., min_items=1, description="Instagram requires at least one media item")
     instagram_account_id: str = Field(..., description="Instagram business account ID")
 
-
 @router.post("/instagram/post")
 async def instagram_post(
     instagram_request: InstagramPostRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Post content to Instagram
@@ -515,12 +477,10 @@ async def instagram_post(
         logger.error("instagram_post_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/instagram/schedule")
 async def instagram_schedule_post(
     instagram_request: InstagramScheduleRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Schedule an Instagram post
@@ -559,14 +519,11 @@ async def instagram_schedule_post(
         logger.error("instagram_schedule_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/instagram/upload-media")
 async def instagram_upload_media(
     media_url: str,
     instagram_account_id: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Upload media to Instagram
@@ -603,13 +560,10 @@ async def instagram_upload_media(
         logger.error("instagram_upload_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/instagram/post/{post_id}/metrics")
 async def instagram_post_metrics(
     post_id: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get Instagram post analytics
@@ -643,12 +597,9 @@ async def instagram_post_metrics(
         logger.error("instagram_metrics_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/instagram/verify")
 async def instagram_verify_credentials(
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Verify Instagram credentials
@@ -678,14 +629,12 @@ async def instagram_verify_credentials(
         logger.error("instagram_verify_error", error=str(e))
         return {"valid": False, "error": str(e)}
 
-
 # LinkedIn-specific endpoints
 class LinkedInPostRequest(BaseModel):
     """Request schema for LinkedIn post"""
     content: str = Field(..., min_length=1, max_length=3000)
     media_urls: List[str] = Field(default_factory=list)
     person_urn: str = Field(None, description="LinkedIn person URN (optional)")
-
 
 class LinkedInScheduleRequest(BaseModel):
     """Request schema for LinkedIn scheduled post"""
@@ -694,12 +643,10 @@ class LinkedInScheduleRequest(BaseModel):
     media_urls: List[str] = Field(default_factory=list)
     person_urn: str = Field(None, description="LinkedIn person URN (optional)")
 
-
 @router.post("/linkedin/post")
 async def linkedin_post(
     linkedin_request: LinkedInPostRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Post content to LinkedIn
@@ -737,12 +684,10 @@ async def linkedin_post(
         logger.error("linkedin_post_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/linkedin/schedule")
 async def linkedin_schedule_post(
     linkedin_request: LinkedInScheduleRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Schedule a LinkedIn post (creates as draft)
@@ -781,13 +726,11 @@ async def linkedin_schedule_post(
         logger.error("linkedin_schedule_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/linkedin/upload-media")
 async def linkedin_upload_media(
     media_url: str,
     request: Request,
-    person_urn: str = None,
-    db: AsyncSession = Depends(get_async_db)
+    person_urn: str = None
 ):
     """
     Upload media to LinkedIn
@@ -824,13 +767,10 @@ async def linkedin_upload_media(
         logger.error("linkedin_upload_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/linkedin/post/{post_id}/metrics")
 async def linkedin_post_metrics(
     post_id: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get LinkedIn post analytics
@@ -864,12 +804,9 @@ async def linkedin_post_metrics(
         logger.error("linkedin_metrics_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/linkedin/verify")
 async def linkedin_verify_credentials(
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Verify LinkedIn credentials
@@ -899,7 +836,6 @@ async def linkedin_verify_credentials(
         logger.error("linkedin_verify_error", error=str(e))
         return {"valid": False, "error": str(e)}
 
-
 # TikTok-specific endpoints
 class TikTokPostRequest(BaseModel):
     """Request schema for TikTok post"""
@@ -910,19 +846,16 @@ class TikTokPostRequest(BaseModel):
     disable_comment: bool = Field(default=False)
     disable_stitch: bool = Field(default=False)
 
-
 class TikTokScheduleRequest(BaseModel):
     """Request schema for TikTok scheduled post (not supported)"""
     content: str = Field(..., min_length=1, max_length=2200)
     scheduled_time: int = Field(..., description="Unix timestamp for scheduling")
     media_urls: List[str] = Field(..., min_items=1, description="TikTok requires at least one video")
 
-
 @router.post("/tiktok/post")
 async def tiktok_post(
     tiktok_request: TikTokPostRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Post content to TikTok
@@ -963,12 +896,10 @@ async def tiktok_post(
         logger.error("tiktok_post_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/tiktok/schedule")
 async def tiktok_schedule_post(
     tiktok_request: TikTokScheduleRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Schedule a TikTok post (not supported by TikTok API)
@@ -1006,13 +937,10 @@ async def tiktok_schedule_post(
         logger.error("tiktok_schedule_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/tiktok/upload-media")
 async def tiktok_upload_media(
     media_url: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Upload media to TikTok
@@ -1048,13 +976,10 @@ async def tiktok_upload_media(
         logger.error("tiktok_upload_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/tiktok/post/{post_id}/metrics")
 async def tiktok_post_metrics(
     post_id: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get TikTok post analytics
@@ -1088,12 +1013,9 @@ async def tiktok_post_metrics(
         logger.error("tiktok_metrics_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/tiktok/verify")
 async def tiktok_verify_credentials(
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Verify TikTok credentials
@@ -1123,7 +1045,6 @@ async def tiktok_verify_credentials(
         logger.error("tiktok_verify_error", error=str(e))
         return {"valid": False, "error": str(e)}
 
-
 # Twitter-specific endpoints
 class TwitterPostRequest(BaseModel):
     """Request schema for Twitter post"""
@@ -1131,19 +1052,16 @@ class TwitterPostRequest(BaseModel):
     media_urls: List[str] = Field(default_factory=list)
     reply_settings: str = Field(default="everyone")
 
-
 class TwitterScheduleRequest(BaseModel):
     """Request schema for Twitter scheduled post (not supported)"""
     content: str = Field(..., min_length=1, max_length=280)
     scheduled_time: int = Field(..., description="Unix timestamp for scheduling")
     media_urls: List[str] = Field(default_factory=list)
 
-
 @router.post("/twitter/post")
 async def twitter_post(
     twitter_request: TwitterPostRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Post content to Twitter
@@ -1181,12 +1099,10 @@ async def twitter_post(
         logger.error("twitter_post_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/twitter/schedule")
 async def twitter_schedule_post(
     twitter_request: TwitterScheduleRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Schedule a Twitter post (not supported by Twitter API)
@@ -1224,13 +1140,10 @@ async def twitter_schedule_post(
         logger.error("twitter_schedule_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/twitter/upload-media")
 async def twitter_upload_media(
     media_url: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Upload media to Twitter
@@ -1266,13 +1179,10 @@ async def twitter_upload_media(
         logger.error("twitter_upload_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/twitter/post/{post_id}/metrics")
 async def twitter_post_metrics(
     post_id: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get Twitter post analytics
@@ -1306,12 +1216,9 @@ async def twitter_post_metrics(
         logger.error("twitter_metrics_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/twitter/verify")
 async def twitter_verify_credentials(
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Verify Twitter credentials
@@ -1341,7 +1248,6 @@ async def twitter_verify_credentials(
         logger.error("twitter_verify_error", error=str(e))
         return {"valid": False, "error": str(e)}
 
-
 # YouTube-specific endpoints
 class YouTubePostRequest(BaseModel):
     """Request schema for YouTube post"""
@@ -1351,7 +1257,6 @@ class YouTubePostRequest(BaseModel):
     category_id: str = Field(default="22", description="Video category (22 = People & Blogs)")
     privacy_status: str = Field(default="public", description="public, private, unlisted")
     tags: List[str] = Field(default_factory=list)
-
 
 class YouTubeScheduleRequest(BaseModel):
     """Request schema for YouTube scheduled post"""
@@ -1363,12 +1268,10 @@ class YouTubeScheduleRequest(BaseModel):
     privacy_status: str = Field(default="public")
     tags: List[str] = Field(default_factory=list)
 
-
 @router.post("/youtube/post")
 async def youtube_post(
     youtube_request: YouTubePostRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Post content to YouTube
@@ -1410,12 +1313,10 @@ async def youtube_post(
         logger.error("youtube_post_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/youtube/schedule")
 async def youtube_schedule_post(
     youtube_request: YouTubeScheduleRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Schedule a YouTube video
@@ -1454,14 +1355,12 @@ async def youtube_schedule_post(
         logger.error("youtube_schedule_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.post("/youtube/upload-media")
 async def youtube_upload_media(
     media_url: str,
     request: Request,
     title: str = "Untitled Video",
-    description: str = "",
-    db: AsyncSession = Depends(get_async_db)
+    description: str = ""
 ):
     """
     Upload media to YouTube
@@ -1499,13 +1398,10 @@ async def youtube_upload_media(
         logger.error("youtube_upload_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/youtube/post/{post_id}/metrics")
 async def youtube_post_metrics(
     post_id: str,
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get YouTube video analytics
@@ -1539,12 +1435,9 @@ async def youtube_post_metrics(
         logger.error("youtube_metrics_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.get("/youtube/verify")
 async def youtube_verify_credentials(
-    request: Request,
-
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Verify YouTube credentials

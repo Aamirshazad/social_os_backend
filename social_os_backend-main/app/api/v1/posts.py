@@ -8,23 +8,19 @@ from datetime import datetime
 
 from fastapi import APIRouter, Request, Query, HTTPException, Depends
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 from app.core.supabase import get_supabase_service_client
-from app.database import get_async_db
 from app.models.enums import PostStatus
 
 logger = structlog.get_logger()
 router = APIRouter()
 
-
 class PostCreateRequest(BaseModel):
     """Post creation request matching Next.js schema"""
     post: Dict[str, Any]
     workspaceId: str
-
 
 class PostResponse(BaseModel):
     """Post response matching Next.js format"""
@@ -48,7 +44,6 @@ class PostResponse(BaseModel):
     videoGenerationStatus: str = ""
     videoOperation: Optional[Dict[str, Any]] = None
 
-
 class CreatePostRequest(BaseModel):
     workspace_id: str
     topic: str
@@ -57,7 +52,6 @@ class CreatePostRequest(BaseModel):
     status: Optional[str] = "draft"
     scheduled_at: Optional[datetime] = None
     campaign_id: Optional[str] = None
-
 
 class UpdatePostRequest(BaseModel):
     workspace_id: str
@@ -68,14 +62,12 @@ class UpdatePostRequest(BaseModel):
     scheduled_at: Optional[datetime] = None
     campaign_id: Optional[str] = None
 
-
 class PaginatedPostsResponse(BaseModel):
     items: List[Dict[str, Any]]
     total: int
     page: int
     page_size: int
     pages: int
-
 
 def serialize_post_row(row: Dict[str, Any]) -> Dict[str, Any]:
     """Serialize Supabase row dict to the same snake_case response used by serialize_post."""
@@ -96,19 +88,16 @@ def serialize_post_row(row: Dict[str, Any]) -> Dict[str, Any]:
         "updated_at": row.get("updated_at").isoformat() if hasattr(row.get("updated_at"), "isoformat") and row.get("updated_at") else row.get("updated_at"),
     }
 
-
 @router.get("", response_model=PaginatedPostsResponse)
 async def get_posts(
     request: Request,
     workspace_id: str = Query(..., description="Workspace ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    status: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_async_db),
-):
+    status: Optional[str] = Query(None)):
     """GET - Fetch posts for workspace with optional pagination and status filter."""
     try:
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
 
         if user_data["workspace_id"] != workspace_id:
             raise HTTPException(status_code=403, detail="Access denied to workspace")
@@ -159,16 +148,13 @@ async def get_posts(
         logger.error("get_posts_error", error=str(e), workspace_id=workspace_id)
         raise HTTPException(status_code=500, detail="Failed to fetch posts")
 
-
 @router.post("", status_code=201)
 async def create_post(
     request: Request,
-    post_data: CreatePostRequest,
-    db: AsyncSession = Depends(get_async_db),
-):
+    post_data: CreatePostRequest):
     """POST - Create new post using CreatePostRequest shape from frontend."""
     try:
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
 
         if user_data["workspace_id"] != post_data.workspace_id:
             raise HTTPException(status_code=403, detail="Access denied to workspace")
@@ -200,8 +186,7 @@ async def create_post(
                 "supabase_create_post_error",
                 error=str(error),
                 workspace_id=post_data.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(status_code=500, detail="Failed to create post")
 
         row = getattr(response, "data", None)
@@ -209,16 +194,14 @@ async def create_post(
             logger.error(
                 "supabase_create_post_empty_response",
                 workspace_id=post_data.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(status_code=500, detail="Failed to create post")
 
         logger.info(
             "post_created",
             post_id=str(row.get("id")),
             workspace_id=post_data.workspace_id,
-            user_id=user_id,
-        )
+            user_id=user_id)
         return serialize_post_row(row)
 
     except HTTPException:
@@ -228,16 +211,13 @@ async def create_post(
         logger.error("create_post_error", error=str(e), workspace_id=workspace_id)
         raise HTTPException(status_code=500, detail="Failed to create post")
 
-
 @router.get("/{post_id}")
 async def get_post(
     post_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """GET - Fetch a single post by ID."""
     try:
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
 
         supabase = get_supabase_service_client()
         response = supabase.table("posts").select("*").eq("id", post_id).maybe_single().execute()
@@ -262,17 +242,14 @@ async def get_post(
         logger.error("get_post_error", error=str(e), post_id=post_id)
         raise HTTPException(status_code=500, detail="Failed to fetch post")
 
-
 @router.put("/{post_id}")
 async def update_post(
     post_id: str,
     request: Request,
-    post_data: UpdatePostRequest,
-    db: AsyncSession = Depends(get_async_db),
-):
+    post_data: UpdatePostRequest):
     """PUT - Update an existing post."""
     try:
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
 
         if user_data["workspace_id"] != post_data.workspace_id:
             raise HTTPException(status_code=403, detail="Access denied to workspace")
@@ -294,8 +271,7 @@ async def update_post(
                 error=str(fetch_error),
                 post_id=post_id,
                 workspace_id=post_data.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(status_code=500, detail="Failed to update post")
 
         existing = getattr(fetch_response, "data", None)
@@ -343,8 +319,7 @@ async def update_post(
                 error=str(error),
                 post_id=post_id,
                 workspace_id=post_data.workspace_id,
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(status_code=500, detail="Failed to update post")
 
         updated_row = getattr(response, "data", None)
@@ -360,16 +335,13 @@ async def update_post(
         logger.error("update_post_error", error=str(e), post_id=post_id)
         raise HTTPException(status_code=500, detail="Failed to update post")
 
-
 @router.delete("/{post_id}", status_code=204)
 async def delete_post(
     post_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db),
-):
+    request: Request):
     """DELETE - Remove a post by ID."""
     try:
-        user_id, user_data = await require_editor_or_admin_role(request, db)
+        user_id, user_data = await require_editor_or_admin_role(request)
 
         supabase = get_supabase_service_client()
 
@@ -388,8 +360,7 @@ async def delete_post(
                 error=str(fetch_error),
                 post_id=post_id,
                 workspace_id=user_data["workspace_id"],
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(status_code=500, detail="Failed to delete post")
 
         existing = getattr(fetch_response, "data", None)
@@ -414,16 +385,14 @@ async def delete_post(
                 error=str(error),
                 post_id=post_id,
                 workspace_id=user_data["workspace_id"],
-                user_id=user_id,
-            )
+                user_id=user_id)
             raise HTTPException(status_code=500, detail="Failed to delete post")
 
         logger.info(
             "post_deleted",
             post_id=post_id,
             workspace_id=user_data["workspace_id"],
-            user_id=user_id,
-        )
+            user_id=user_id)
         return None
 
     except HTTPException:

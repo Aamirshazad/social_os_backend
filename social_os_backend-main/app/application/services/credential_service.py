@@ -5,11 +5,9 @@ any direct PostgreSQL connections (SQLAlchemy/asyncpg). The public method
 signatures are preserved so existing callers continue to work, but the
 ``db``/``Session`` arguments are no longer used for persistence.
 """
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import structlog
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import encryption
 from app.core.supabase import get_supabase_service_client
@@ -28,8 +26,7 @@ class CredentialService:
     
     @staticmethod
     async def get_platform_credentials(
-        db: AsyncSession,
-        workspace_id: str,
+                workspace_id: str,
         platform: str
     ) -> Optional[Dict[str, Any]]:
         """
@@ -83,8 +80,7 @@ class CredentialService:
     
     @staticmethod
     async def store_platform_credentials(
-        db: AsyncSession,
-        workspace_id: str,
+                workspace_id: str,
         platform: str,
         access_token: str,
         refresh_token: Optional[str] = None,
@@ -176,8 +172,7 @@ class CredentialService:
     
     @staticmethod
     async def delete_platform_credentials(
-        db: AsyncSession,
-        workspace_id: str,
+                workspace_id: str,
         platform: str
     ) -> bool:
         """
@@ -222,8 +217,7 @@ class CredentialService:
     
     @staticmethod
     async def get_all_workspace_credentials(
-        db: AsyncSession,
-        workspace_id: str
+                workspace_id: str
     ) -> List[Dict[str, Any]]:
         """
         Get all credentials for a workspace

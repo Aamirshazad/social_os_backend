@@ -2,13 +2,9 @@
 Authentication API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from pydantic import ValidationError
 from typing import Dict, Any
 
-from app.database import get_async_db
 from app.schemas.auth import LoginRequest, RegisterRequest, AuthSuccessResponse
 from app.schemas.user import UserResponse
 from app.application.services.auth.authentication_service import AuthenticationService
@@ -18,7 +14,6 @@ import structlog
 
 logger = structlog.get_logger()
 router = APIRouter()
-
 
 def validate_request_security(request: Request) -> Dict[str, Any]:
     """
@@ -41,12 +36,9 @@ def validate_request_security(request: Request) -> Dict[str, Any]:
     
     return security_info
 
-
-
 @router.get("/me")
 async def get_current_user(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get current user profile with workspace and role
@@ -54,7 +46,7 @@ async def get_current_user(
     """
     try:
         # Use centralized auth helper to verify Supabase token and load user profile
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
 
         return {
             "id": user_data["id"],
@@ -73,12 +65,10 @@ async def get_current_user(
             detail="Failed to get user profile"
         )
 
-
 @router.post("/register", response_model=AuthSuccessResponse)
 async def register(
     register_data: RegisterRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Register a new user
@@ -143,12 +133,10 @@ async def register(
             detail="Registration failed"
         )
 
-
 @router.post("/login", response_model=AuthSuccessResponse)
 async def login(
     login_data: LoginRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Login endpoint
@@ -204,7 +192,6 @@ async def login(
             detail="Login failed"
         )
 
-
 @router.post("/logout")
 async def logout(request: Request):
     """
@@ -225,24 +212,20 @@ async def logout(request: Request):
     
     return {"message": "Successfully logged out"}
 
-
 @router.options("/login")
 async def login_options():
     """Handle preflight requests for login endpoint"""
     return {"message": "OK"}
-
 
 @router.options("/register")
 async def register_options():
     """Handle preflight requests for register endpoint"""
     return {"message": "OK"}
 
-
 @router.options("/logout")
 async def logout_options():
     """Handle preflight requests for logout endpoint"""
     return {"message": "OK"}
-
 
 @router.options("/me")
 async def me_options():

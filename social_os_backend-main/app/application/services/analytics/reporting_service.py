@@ -1,8 +1,7 @@
 """
-Reporting Service - Generate analytics reports
+Reporting Service - Generate analytics reports via Supabase HTTP
 """
 from typing import Dict, Any, List
-from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import structlog
 
@@ -16,7 +15,7 @@ class ReportingService:
     
     @staticmethod
     def generate_performance_report(
-        db: Session,
+        db: Any,
         workspace_id: str,
         days: int = 30
     ) -> Dict[str, Any]:
@@ -24,7 +23,7 @@ class ReportingService:
         Generate comprehensive performance report
         
         Args:
-            db: Database session
+            db: Database session (unused, kept for compatibility)
             workspace_id: Workspace ID
             days: Number of days to analyze
         

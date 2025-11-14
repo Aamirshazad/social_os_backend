@@ -87,7 +87,7 @@ class ExternalAPIError(APIException):
 
 
 class DatabaseError(APIException):
-    """Database operation error"""
+    """Database operation error (Supabase HTTP API errors)"""
     
     def __init__(self, detail: str = "Database operation failed"):
         super().__init__(
@@ -180,7 +180,7 @@ class InsufficientPermissionsError(APIException):
 
 def handle_database_error(e: Exception, operation: str = "database operation") -> DatabaseError:
     """
-    Convert database exceptions to DatabaseError
+    Convert Supabase HTTP API exceptions to DatabaseError
     
     Args:
         e: The caught exception
@@ -194,6 +194,8 @@ def handle_database_error(e: Exception, operation: str = "database operation") -
         return DatabaseError(f"Database constraint violation during {operation}")
     elif "timeout" in error_msg.lower():
         return DatabaseError(f"Database timeout during {operation}")
+    elif "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
+        return DatabaseError(f"Duplicate entry during {operation}")
     else:
         return DatabaseError(f"Database error during {operation}: {error_msg}")
 
@@ -266,7 +268,7 @@ class ErrorContext:
             return True  # Suppress
         
         # Handle common exception types
-        if "database" in str(exc_val).lower() or "sql" in str(exc_val).lower():
+        if "database" in str(exc_val).lower() or "supabase" in str(exc_val).lower():
             if self.raise_on_error:
                 raise handle_database_error(exc_val, self.operation)
         elif "timeout" in str(exc_val).lower():

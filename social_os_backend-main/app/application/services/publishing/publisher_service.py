@@ -1,9 +1,7 @@
 """
-Publisher Service - Multi-platform content publishing
+Publisher Service - Multi-platform content publishing via Supabase HTTP
 """
 from typing import Dict, Any, List
-from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 import structlog
 
@@ -31,7 +29,6 @@ class PublisherService:
     
     @staticmethod
     async def publish_to_platform(
-        db: AsyncSession,
         workspace_id: str,
         platform: str,
         content: str,
@@ -42,7 +39,6 @@ class PublisherService:
         Publish content to a single platform
         
         Args:
-            db: Database session
             workspace_id: Workspace ID
             platform: Platform name
             content: Content to publish
@@ -66,9 +62,8 @@ class PublisherService:
 
             # Get credentials for platform
             credentials = await CredentialService.get_platform_credentials(
-                db=db,
                 workspace_id=workspace_id,
-                platform=platform,
+                platform=platform
             )
 
             if not credentials or not credentials.get("access_token"):
@@ -99,7 +94,6 @@ class PublisherService:
     
     @staticmethod
     async def publish_to_multiple_platforms(
-        db: AsyncSession,
         workspace_id: str,
         platforms: List[str],
         content_by_platform: Dict[str, str],
@@ -110,7 +104,6 @@ class PublisherService:
         Publish content to multiple platforms simultaneously
         
         Args:
-            db: Database session
             workspace_id: Workspace ID
             platforms: List of platform names
             content: Content to publish
@@ -140,7 +133,6 @@ class PublisherService:
                 else:
                     task = asyncio.create_task(
                         PublisherService.publish_to_platform(
-                            db=db,
                             workspace_id=workspace_id,
                             platform=platform,
                             content=platform_content,
@@ -185,7 +177,6 @@ class PublisherService:
     
     @staticmethod
     async def schedule_post(
-        db: Session,
         workspace_id: str,
         platform: str,
         content: str,
@@ -197,7 +188,6 @@ class PublisherService:
         Schedule a post for later publication
         
         Args:
-            db: Database session
             workspace_id: Workspace ID
             platform: Platform name
             content: Content to publish
@@ -221,12 +211,10 @@ class PublisherService:
             platform_service = platform_service_class()
             
             # Get credentials for platform
-            # TODO: Refactor CredentialService to new modular structure
-            # credentials = CredentialService.get_platform_credentials(
-            #     db, workspace_id, platform
-            # )
-            # Placeholder - assume credentials exist for now
-            credentials = type('obj', (object,), {'access_token': 'placeholder_token'})()
+            credentials = await CredentialService.get_platform_credentials(
+                workspace_id=workspace_id,
+                platform=platform
+            )
             
             if not credentials:
                 return {
@@ -237,7 +225,7 @@ class PublisherService:
             
             # Schedule post on platform
             result = await platform_service.schedule_post(
-                access_token=credentials.access_token,
+                access_token=credentials.get("access_token"),
                 content=content,
                 scheduled_time=scheduled_time,
                 media_urls=media_urls,
@@ -257,7 +245,6 @@ class PublisherService:
     
     @staticmethod
     async def get_post_metrics(
-        db: Session,
         workspace_id: str,
         platform: str,
         post_id: str
@@ -266,7 +253,6 @@ class PublisherService:
         Get metrics for a published post
         
         Args:
-            db: Database session
             workspace_id: Workspace ID
             platform: Platform name
             post_id: Platform-specific post ID
@@ -286,12 +272,10 @@ class PublisherService:
             platform_service = platform_service_class()
             
             # Get credentials for platform
-            # TODO: Refactor CredentialService to new modular structure
-            # credentials = CredentialService.get_platform_credentials(
-            #     db, workspace_id, platform
-            # )
-            # Placeholder - assume credentials exist for now
-            credentials = type('obj', (object,), {'access_token': 'placeholder_token'})()
+            credentials = await CredentialService.get_platform_credentials(
+                workspace_id=workspace_id,
+                platform=platform
+            )
             
             if not credentials:
                 return {
@@ -301,7 +285,7 @@ class PublisherService:
             
             # Get post metrics
             metrics = await platform_service.get_post_metrics(
-                access_token=credentials.access_token,
+                access_token=credentials.get("access_token"),
                 post_id=post_id
             )
             

@@ -1,15 +1,12 @@
 """
-Metrics Service - Analytics and metrics collection
+Metrics Service - Analytics and metrics collection via Supabase HTTP
 """
 from typing import Dict, Any, List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
 from datetime import datetime, timedelta
 from collections import defaultdict
 import structlog
 
-from app.models.post import Post
-from app.models.campaign import Campaign
+from app.core.supabase import get_supabase_service_client
 
 logger = structlog.get_logger()
 
@@ -19,7 +16,7 @@ class MetricsService:
     
     @staticmethod
     def get_overview(
-        db: Session,
+        db: Any,
         workspace_id: str,
         days: int = 30
     ) -> Dict[str, Any]:
@@ -27,7 +24,7 @@ class MetricsService:
         Get analytics overview for workspace
         
         Args:
-            db: Database session
+            db: Database session (unused, kept for compatibility)
             workspace_id: Workspace ID
             days: Number of days to analyze
         
@@ -35,45 +32,43 @@ class MetricsService:
             Analytics overview data
         """
         try:
+            supabase = get_supabase_service_client()
             end_date = datetime.utcnow()
             start_date = end_date - timedelta(days=days)
             
-            # Get post metrics
-            posts_query = db.query(Post).filter(
-                and_(
-                    Post.workspace_id == workspace_id,
-                    Post.created_at >= start_date,
-                    Post.created_at <= end_date
-                )
+            # Get all posts in date range
+            response = (
+                supabase.table("posts")
+                .select("*")
+                .eq("workspace_id", workspace_id)
+                .gte("created_at", start_date.isoformat())
+                .lte("created_at", end_date.isoformat())
+                .execute()
             )
             
-            total_posts = posts_query.count()
-            published_posts = posts_query.filter(Post.status == "published").count()
+            posts = getattr(response, "data", None) or []
+            total_posts = len(posts)
+            published_posts = len([p for p in posts if p.get("status") == "published"])
             
-            # Get engagement metrics
-            engagement_data = db.query(
-                func.sum(Post.likes_count).label("total_likes"),
-                func.sum(Post.comments_count).label("total_comments"),
-                func.sum(Post.shares_count).label("total_shares"),
-                func.sum(Post.impressions_count).label("total_impressions")
-            ).filter(
-                and_(
-                    Post.workspace_id == workspace_id,
-                    Post.created_at >= start_date,
-                    Post.status == "published"
-                )
-            ).first()
+            # Calculate engagement metrics from published posts
+            total_likes = 0
+            total_comments = 0
+            total_shares = 0
+            total_impressions = 0
             
-            total_engagement = (
-                (engagement_data.total_likes or 0) +
-                (engagement_data.total_comments or 0) +
-                (engagement_data.total_shares or 0)
-            )
+            for post in posts:
+                if post.get("status") == "published":
+                    total_likes += post.get("likes_count", 0) or 0
+                    total_comments += post.get("comments_count", 0) or 0
+                    total_shares += post.get("shares_count", 0) or 0
+                    total_impressions += post.get("impressions_count", 0) or 0
+            
+            total_engagement = total_likes + total_comments + total_shares
             
             # Calculate engagement rate
             engagement_rate = 0
-            if engagement_data.total_impressions and engagement_data.total_impressions > 0:
-                engagement_rate = (total_engagement / engagement_data.total_impressions) * 100
+            if total_impressions > 0:
+                engagement_rate = (total_engagement / total_impressions) * 100
             
             logger.info("analytics_overview_generated", 
                        workspace_id=workspace_id, 
@@ -91,10 +86,10 @@ class MetricsService:
                     "draft": total_posts - published_posts
                 },
                 "engagement": {
-                    "total_likes": engagement_data.total_likes or 0,
-                    "total_comments": engagement_data.total_comments or 0,
-                    "total_shares": engagement_data.total_shares or 0,
-                    "total_impressions": engagement_data.total_impressions or 0,
+                    "total_likes": total_likes,
+                    "total_comments": total_comments,
+                    "total_shares": total_shares,
+                    "total_impressions": total_impressions,
                     "engagement_rate": round(engagement_rate, 2)
                 }
             }
@@ -105,7 +100,7 @@ class MetricsService:
     
     @staticmethod
     def get_platform_performance(
-        db: Session,
+        db: Any,
         workspace_id: str,
         days: int = 30
     ) -> Dict[str, Any]:
@@ -113,7 +108,7 @@ class MetricsService:
         Get platform-specific performance metrics
         
         Args:
-            db: Database session
+            db: Database session (unused, kept for compatibility)
             workspace_id: Workspace ID
             days: Number of days to analyze
         
@@ -121,43 +116,50 @@ class MetricsService:
             Platform performance data
         """
         try:
+            supabase = get_supabase_service_client()
             end_date = datetime.utcnow()
             start_date = end_date - timedelta(days=days)
             
-            # Get platform metrics
-            platform_data = db.query(
-                Post.platform,
-                func.count(Post.id).label("post_count"),
-                func.sum(Post.likes_count).label("total_likes"),
-                func.sum(Post.comments_count).label("total_comments"),
-                func.sum(Post.shares_count).label("total_shares"),
-                func.sum(Post.impressions_count).label("total_impressions")
-            ).filter(
-                and_(
-                    Post.workspace_id == workspace_id,
-                    Post.created_at >= start_date,
-                    Post.status == "published"
-                )
-            ).group_by(Post.platform).all()
+            # Get published posts in date range
+            response = (
+                supabase.table("posts")
+                .select("*")
+                .eq("workspace_id", workspace_id)
+                .eq("status", "published")
+                .gte("created_at", start_date.isoformat())
+                .execute()
+            )
             
+            posts = getattr(response, "data", None) or []
+            
+            # Group by platform and calculate metrics
+            platform_metrics = defaultdict(lambda: {
+                "posts": 0,
+                "likes": 0,
+                "comments": 0,
+                "shares": 0,
+                "impressions": 0
+            })
+            
+            for post in posts:
+                platform = post.get("platform")
+                if platform:
+                    platform_metrics[platform]["posts"] += 1
+                    platform_metrics[platform]["likes"] += post.get("likes_count", 0) or 0
+                    platform_metrics[platform]["comments"] += post.get("comments_count", 0) or 0
+                    platform_metrics[platform]["shares"] += post.get("shares_count", 0) or 0
+                    platform_metrics[platform]["impressions"] += post.get("impressions_count", 0) or 0
+            
+            # Calculate engagement rates
             platforms = {}
-            for data in platform_data:
-                total_engagement = (
-                    (data.total_likes or 0) +
-                    (data.total_comments or 0) +
-                    (data.total_shares or 0)
-                )
-                
+            for platform, metrics in platform_metrics.items():
+                total_engagement = metrics["likes"] + metrics["comments"] + metrics["shares"]
                 engagement_rate = 0
-                if data.total_impressions and data.total_impressions > 0:
-                    engagement_rate = (total_engagement / data.total_impressions) * 100
+                if metrics["impressions"] > 0:
+                    engagement_rate = (total_engagement / metrics["impressions"]) * 100
                 
-                platforms[data.platform] = {
-                    "posts": data.post_count,
-                    "likes": data.total_likes or 0,
-                    "comments": data.total_comments or 0,
-                    "shares": data.total_shares or 0,
-                    "impressions": data.total_impressions or 0,
+                platforms[platform] = {
+                    **metrics,
                     "engagement_rate": round(engagement_rate, 2)
                 }
             
@@ -176,7 +178,7 @@ class MetricsService:
     
     @staticmethod
     def get_top_performing_posts(
-        db: Session,
+        db: Any,
         workspace_id: str,
         limit: int = 10,
         days: int = 30,
@@ -186,7 +188,7 @@ class MetricsService:
         Get top performing posts by engagement
         
         Args:
-            db: Database session
+            db: Database session (unused, kept for compatibility)
             workspace_id: Workspace ID
             limit: Number of posts to return
             days: Number of days to analyze
@@ -196,40 +198,44 @@ class MetricsService:
             List of top performing posts
         """
         try:
+            supabase = get_supabase_service_client()
             end_date = datetime.utcnow()
             start_date = end_date - timedelta(days=days)
             
-            # Calculate engagement score and get top posts
-            query_filters = [
-                Post.workspace_id == workspace_id,
-                Post.created_at >= start_date,
-                Post.status == "published"
-            ]
+            # Build query
+            query = (
+                supabase.table("posts")
+                .select("*")
+                .eq("workspace_id", workspace_id)
+                .eq("status", "published")
+                .gte("created_at", start_date.isoformat())
+            )
             
-            # Add platform filter if specified
             if platform:
-                query_filters.append(Post.platforms.any(platform))
+                query = query.eq("platform", platform)
             
-            posts = db.query(Post).filter(and_(*query_filters)).all()
+            response = query.execute()
+            posts = getattr(response, "data", None) or []
             
             # Calculate engagement scores
             post_scores = []
             for post in posts:
                 engagement_score = (
-                    (post.likes_count or 0) +
-                    (post.comments_count or 0) +
-                    (post.shares_count or 0)
+                    (post.get("likes_count", 0) or 0) +
+                    (post.get("comments_count", 0) or 0) +
+                    (post.get("shares_count", 0) or 0)
                 )
                 
+                content = post.get("content", "")
                 post_scores.append({
-                    "id": str(post.id),
-                    "content": post.content[:100] + "..." if len(post.content) > 100 else post.content,
-                    "platforms": post.platforms or [],
-                    "created_at": post.created_at.isoformat(),
-                    "likes": post.likes_count or 0,
-                    "comments": post.comments_count or 0,
-                    "shares": post.shares_count or 0,
-                    "impressions": post.impressions_count or 0,
+                    "id": post.get("id"),
+                    "content": content[:100] + "..." if len(content) > 100 else content,
+                    "platform": post.get("platform"),
+                    "created_at": post.get("created_at"),
+                    "likes": post.get("likes_count", 0) or 0,
+                    "comments": post.get("comments_count", 0) or 0,
+                    "shares": post.get("shares_count", 0) or 0,
+                    "impressions": post.get("impressions_count", 0) or 0,
                     "engagement_score": engagement_score
                 })
             

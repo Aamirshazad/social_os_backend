@@ -2,12 +2,10 @@
 AI API endpoints
 """
 from fastapi import APIRouter, Depends, File, UploadFile, Form, Request
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from pydantic import BaseModel
 
 from app.core.auth_helper import verify_auth_and_get_user
-from app.database import get_async_db
 from app.core.exceptions import ExternalAPIError
 from app.schemas.ai import (
     GenerateContentRequest,
@@ -27,12 +25,10 @@ import structlog
 logger = structlog.get_logger()
 router = APIRouter()
 
-
 @router.post("/content/generate")
 async def generate_content(
     content_request: GenerateContentRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Generate social media content for multiple platforms
@@ -42,7 +38,7 @@ async def generate_content(
     """
     try:
         # Verify authentication
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
         
         content = await unified_ai_service.generate_content(
             topic=content_request.topic,
@@ -72,12 +68,10 @@ async def generate_content(
             "error": str(e).replace("Gemini: ", ""),
         }
 
-
 @router.post("/content/engagement", response_model=EngagementAnalysisResponse)
 async def analyze_engagement(
     engagement_request: EngagementAnalysisRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Analyze content for engagement potential
@@ -85,7 +79,7 @@ async def analyze_engagement(
     Provides engagement score and suggestions for improvement.
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         analysis = await unified_ai_service.analyze_engagement(
@@ -107,12 +101,10 @@ async def analyze_engagement(
         logger.error("engagement_analysis_unexpected_error", error=str(e))
         raise ExternalAPIError("AI Service", f"Failed to analyze engagement: {str(e)}")
 
-
 @router.post("/media/image/generate", response_model=ImageGenerationResponse)
 async def generate_image(
     image_request: ImageGenerationRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Generate an image using AI
@@ -120,7 +112,7 @@ async def generate_image(
     Creates a unique image based on the prompt.
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         result = await unified_ai_service.generate_image(
@@ -147,13 +139,11 @@ async def generate_image(
         logger.error("image_generation_unexpected_error", error=str(e))
         raise ExternalAPIError("AI Service", f"Failed to generate image: {str(e)}")
 
-
 @router.post("/media/image/edit")
 async def edit_image(
     request: Request,
     image: UploadFile = File(...),
-    prompt: str = Form(""),
-    db: AsyncSession = Depends(get_async_db)
+    prompt: str = Form("")
 ):
     """
     Edit an image using AI
@@ -161,7 +151,7 @@ async def edit_image(
     Uploads an image and applies AI-based editing based on the prompt.
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         image_bytes = await image.read()
@@ -184,12 +174,10 @@ async def edit_image(
         logger.error("image_editing_unexpected_error", error=str(e))
         raise ExternalAPIError("AI Service", f"Failed to edit image: {str(e)}")
 
-
 @router.post("/media/video/generate", response_model=VideoGenerationResponse)
 async def generate_video(
     video_request: VideoGenerationRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Generate a video (placeholder for future video generation API)
@@ -204,18 +192,16 @@ async def generate_video(
         "message": "Video generation initiated. Check status endpoint for updates."
     }
 
-
 @router.get("/media/video/{video_id}/status")
 async def get_video_status(
     video_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Get video generation status
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         # Placeholder response
@@ -238,12 +224,10 @@ async def get_video_status(
             "error": str(e)
         }
 
-
 @router.post("/campaigns/brief", response_model=CampaignBriefResponse)
 async def generate_campaign_brief(
     brief_request: CampaignBriefRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Generate a comprehensive campaign brief
@@ -251,7 +235,7 @@ async def generate_campaign_brief(
     Creates a detailed campaign strategy with content calendar and KPIs.
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         brief = await unified_ai_service.generate_campaign_brief(
@@ -274,7 +258,6 @@ async def generate_campaign_brief(
         logger.error("campaign_brief_unexpected_error", error=str(e))
         raise ExternalAPIError("AI Service", f"Failed to generate campaign brief: {str(e)}")
 
-
 class CampaignIdeasRequest(BaseModel):
     topic: str
     platforms: List[str]
@@ -282,14 +265,13 @@ class CampaignIdeasRequest(BaseModel):
 @router.post("/campaigns/ideas")
 async def generate_campaign_ideas(
     ideas_request: CampaignIdeasRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Generate campaign ideas based on a topic
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         # Use Gemini to generate ideas
@@ -318,21 +300,19 @@ async def generate_campaign_ideas(
             "error": str(e)
         }
 
-
 class PromptImprovementRequest(BaseModel):
     prompt: str
 
 @router.post("/prompts/improve")
 async def improve_prompt(
     prompt_request: PromptImprovementRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Improve a prompt for better AI generation
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         improved = await unified_ai_service.improve_prompt(prompt_request.prompt)
@@ -357,7 +337,6 @@ async def improve_prompt(
             "error": str(e)
         }
 
-
 class RepurposeContentRequest(BaseModel):
     long_form_content: str
     platforms: List[str]
@@ -366,15 +345,14 @@ class RepurposeContentRequest(BaseModel):
 @router.post("/content/repurpose")
 async def repurpose_content(
     repurpose_request: RepurposeContentRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Repurpose long-form content into multiple social media posts
     Matches original /api/ai/content/repurpose endpoint
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         # Convert string platforms to Platform enum
@@ -405,7 +383,6 @@ async def repurpose_content(
             "error": str(e)
         }
 
-
 class StrategistChatRequest(BaseModel):
     message: str
     history: List[dict] = []
@@ -413,8 +390,7 @@ class StrategistChatRequest(BaseModel):
 @router.post("/content/strategist/chat")
 async def strategist_chat(
     chat_request: StrategistChatRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Chat with AI content strategist - Cortext AI
@@ -423,7 +399,7 @@ async def strategist_chat(
     Matches original /api/ai/content/strategist/chat endpoint
     """
     # Verify authentication
-    user_id, user_data = await verify_auth_and_get_user(request, db)
+    user_id, user_data = await verify_auth_and_get_user(request)
     
     try:
         result = await unified_ai_service.content_strategist_chat(

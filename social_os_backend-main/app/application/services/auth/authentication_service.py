@@ -122,7 +122,7 @@ class AuthenticationService:
         user_id: str
     ):
         """
-        Verify user exists and is active using Supabase
+        Verify user exists and is active using Supabase service client
         
         Args:
             user_id: User ID
@@ -131,13 +131,15 @@ class AuthenticationService:
             User data if valid, None otherwise
         """
         try:
-            supabase = AuthenticationService.get_supabase()
+            from app.core.supabase import get_supabase_service_client
+            supabase = get_supabase_service_client()
             
-            # Get user from Supabase auth
-            response = supabase.auth.admin.get_user_by_id(user_id)
+            # Get user from database using service client
+            response = supabase.table("users").select("*").eq("id", user_id).eq("is_active", True).maybe_single().execute()
             
-            if response.user:
-                return response.user
+            user_data = getattr(response, "data", None)
+            if user_data:
+                return user_data
             
             return None
             

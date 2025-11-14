@@ -79,10 +79,6 @@ class Settings(BaseSettings):
         """Get CORS origins for backward compatibility"""
         return self.get_cors_origins()
     
-    # Database - configured via SUPABASE_DB_URL environment variable
-    DATABASE_POOL_SIZE: int = 20
-    DATABASE_MAX_OVERFLOW: int = 10
-    
     # JWT
     SECRET_KEY: str = Field(default_factory=lambda: os.getenv("SECRET_KEY") or "dev-secret-key-change-in-production-32-chars-minimum-for-security")
     ALGORITHM: str = "HS256"

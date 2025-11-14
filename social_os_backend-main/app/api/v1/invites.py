@@ -1,34 +1,25 @@
 """
-Workspace Invites API endpoints
+Workspace Invites API endpoints - Using Supabase HTTP for all data operations
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
-
-from app.database import get_async_db
-from app.core.auth_helper import verify_auth_and_get_user, require_admin_role
-from app.models.workspace_invite import WorkspaceInvite
-from app.models.workspace import Workspace
-from app.models.user import User
-from app.models.enums import UserRole
-# TODO: InviteService and ActivityService need to be implemented
-# from app.application.services.invite_service import InviteService
-# from app.application.services.activity_service import ActivityService
+from datetime import datetime, timedelta
+import secrets
 import structlog
+
+from app.core.auth_helper import verify_auth_and_get_user, require_admin_role
+from app.core.supabase import get_supabase_service_client
+from app.config import settings
 
 logger = structlog.get_logger()
 router = APIRouter()
-
 
 class CreateInviteRequest(BaseModel):
     """Request schema for creating an invite"""
     email: Optional[EmailStr] = None
     role: str = Field(..., pattern="^(admin|editor|viewer)$")
     expires_in_days: int = Field(default=7, ge=1, le=365)
-
 
 class InviteResponse(BaseModel):
     """Response schema for invite"""
@@ -44,17 +35,14 @@ class InviteResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
 class AcceptInviteRequest(BaseModel):
     """Request schema for accepting an invite via JSON body"""
     token: str
 
-
 @router.get("", response_model=List[InviteResponse])
 async def get_invites(
     request: Request,
-    include_expired: bool = Query(False),
-    db: AsyncSession = Depends(get_async_db)
+    include_expired: bool = Query(False)
 ):
     """
     Get all pending invites for workspace
@@ -63,37 +51,37 @@ async def get_invites(
     """
     try:
         # Verify authentication and require admin role
-        user_id, user_data = await require_admin_role(request, db)
+        user_id, user_data = await require_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # Query invites from database (async)
-        query = select(WorkspaceInvite).filter(
-            WorkspaceInvite.workspace_id == workspace_id
-        )
+        # Query invites from Supabase
+        supabase = get_supabase_service_client()
+        response = supabase.table("workspace_invites").select("*").eq("workspace_id", workspace_id).execute()
+        
+        rows = getattr(response, "data", None) or []
         
         # Filter out expired invites if requested
+        now = datetime.utcnow()
         if not include_expired:
-            query = query.filter(WorkspaceInvite.expires_at > datetime.utcnow())
+            rows = [r for r in rows if r.get("expires_at") and datetime.fromisoformat(r["expires_at"].replace("Z", "+00:00")) > now]
         
-        result = await db.execute(query.order_by(WorkspaceInvite.created_at.desc()))
-        invites = result.scalars().all()
+        # Sort by created_at descending
+        rows = sorted(rows, key=lambda r: r.get("created_at", ""), reverse=True)
         
-        # Add invite URL to each
-        from app.config import settings
         base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
         
         return [
             {
-                "id": str(invite.id),
-                "email": invite.email,
-                "token": invite.token,
-                "role": invite.role,
-                "invited_by": str(invite.invited_by),
-                "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
-                "created_at": invite.created_at.isoformat(),
-                "invite_url": f"{base_url}/invite/{invite.token}"
+                "id": row.get("id"),
+                "email": row.get("email"),
+                "token": row.get("token"),
+                "role": row.get("role"),
+                "invited_by": row.get("invited_by"),
+                "expires_at": row.get("expires_at"),
+                "created_at": row.get("created_at"),
+                "invite_url": f"{base_url}/invite/{row.get('token')}"
             }
-            for invite in invites
+            for row in rows
         ]
     except Exception as e:
         logger.error("get_invites_error", error=str(e))
@@ -102,12 +90,10 @@ async def get_invites(
             detail="Failed to retrieve invites"
         )
 
-
 @router.post("", response_model=InviteResponse, status_code=201)
 async def create_invite(
     invite_request: CreateInviteRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Create a new workspace invitation
@@ -116,44 +102,55 @@ async def create_invite(
     """
     try:
         # Verify authentication and require admin role
-        user_id, user_data = await require_admin_role(request, db)
+        user_id, user_data = await require_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        from app.config import settings
-        
-        # Use WorkspaceInvite helpers and enum for role/expiry
-        try:
-            invite_role = UserRole(invite_request.role)
-        except ValueError:
+        # Validate role
+        if invite_request.role not in ["admin", "editor", "viewer"]:
             raise HTTPException(status_code=400, detail="Invalid role value")
-
-        invite = WorkspaceInvite(
-            workspace_id=workspace_id,
-            email=invite_request.email,
-            token=WorkspaceInvite.generate_token(),
-            role=invite_role,
-            invited_by=user_id,
-            expires_at=WorkspaceInvite.calculate_expiry(invite_request.expires_in_days),
-        )
         
-        db.add(invite)
-        await db.commit()
-        await db.refresh(invite)
+        # Generate token and calculate expiry
+        token = secrets.token_urlsafe(32)
+        expires_at = (datetime.utcnow() + timedelta(days=invite_request.expires_in_days)).isoformat()
         
-        logger.info("invite_created", invite_id=str(invite.id), email=invite_request.email, role=invite_request.role)
+        # Insert invite into Supabase
+        supabase = get_supabase_service_client()
+        payload = {
+            "workspace_id": workspace_id,
+            "email": invite_request.email,
+            "token": token,
+            "role": invite_request.role,
+            "invited_by": user_id,
+            "expires_at": expires_at,
+        }
+        
+        response = supabase.table("workspace_invites").insert(payload).select("*").maybe_single().execute()
+        
+        error = getattr(response, "error", None)
+        if error:
+            logger.error("create_invite_error", error=str(error), workspace_id=workspace_id)
+            raise HTTPException(status_code=500, detail="Failed to create invitation")
+        
+        row = getattr(response, "data", None)
+        if not row:
+            raise HTTPException(status_code=500, detail="Failed to create invitation")
+        
+        logger.info("invite_created", invite_id=row.get("id"), email=invite_request.email, role=invite_request.role)
         
         base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
         
         return {
-            "id": str(invite.id),
-            "email": invite.email,
-            "token": invite.token,
-            "role": invite.role,
-            "invited_by": str(invite.invited_by),
-            "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
-            "created_at": invite.created_at.isoformat(),
-            "invite_url": f"{base_url}/invite/{invite.token}"
+            "id": row.get("id"),
+            "email": row.get("email"),
+            "token": row.get("token"),
+            "role": row.get("role"),
+            "invited_by": row.get("invited_by"),
+            "expires_at": row.get("expires_at"),
+            "created_at": row.get("created_at"),
+            "invite_url": f"{base_url}/invite/{row.get('token')}"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("create_invite_error", error=str(e))
         raise HTTPException(
@@ -161,33 +158,41 @@ async def create_invite(
             detail="Failed to create invitation"
         )
 
-
 @router.get("/{token}")
 async def validate_invite(
-    token: str,
-    db: AsyncSession = Depends(get_async_db)
+    token: str
 ):
     """Validate an invite token and return metadata (public endpoint)."""
     try:
-        result = await db.execute(
-            select(WorkspaceInvite, Workspace)
-            .join(Workspace, WorkspaceInvite.workspace_id == Workspace.id)
-            .where(WorkspaceInvite.token == token)
-        )
-        row = result.first()
-        if not row:
+        supabase = get_supabase_service_client()
+        
+        # Get invite by token
+        invite_response = supabase.table("workspace_invites").select("*").eq("token", token).maybe_single().execute()
+        invite_row = getattr(invite_response, "data", None)
+        
+        if not invite_row:
             raise HTTPException(status_code=404, detail="Invitation not found")
-
-        invite, workspace = row
-
-        is_expired = invite.is_expired()
-
+        
+        # Get workspace details
+        workspace_response = supabase.table("workspaces").select("name").eq("id", invite_row.get("workspace_id")).maybe_single().execute()
+        workspace_row = getattr(workspace_response, "data", None)
+        
+        if not workspace_row:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        # Check if expired
+        expires_at_str = invite_row.get("expires_at")
+        is_expired = False
+        if expires_at_str:
+            expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+            is_expired = expires_at < datetime.utcnow()
+        
         return {
-            "workspace_id": str(invite.workspace_id),
-            "workspace_name": workspace.name,
-            "email": invite.email,
-            "role": invite.role.value if hasattr(invite.role, "value") else str(invite.role),
-            "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
+            "workspace_id": invite_row.get("workspace_id"),
+            "workspace_name": workspace_row.get("name"),
+            "email": invite_row.get("email"),
+            "role": invite_row.get("role"),
+            "expires_at": invite_row.get("expires_at"),
             "is_expired": is_expired,
         }
     except HTTPException:
@@ -199,70 +204,76 @@ async def validate_invite(
             detail="Failed to validate invitation"
         )
 
-
 @router.post("/{token}/accept")
 async def accept_invite(
     token: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Accept a workspace invitation
     """
     try:
         # Verify authentication and get user data
-        user_id, user_data = await verify_auth_and_get_user(request, db)
+        user_id, user_data = await verify_auth_and_get_user(request)
+        
+        supabase = get_supabase_service_client()
         
         # Look up invite by token
-        result = await db.execute(
-            select(WorkspaceInvite).where(WorkspaceInvite.token == token)
-        )
-        invite = result.scalar_one_or_none()
+        invite_response = supabase.table("workspace_invites").select("*").eq("token", token).maybe_single().execute()
+        invite_row = getattr(invite_response, "data", None)
         
-        if not invite:
+        if not invite_row:
             raise HTTPException(status_code=404, detail="Invitation not found")
         
-        if invite.is_expired():
-            raise HTTPException(status_code=400, detail="Invitation has expired")
+        # Check if expired
+        expires_at_str = invite_row.get("expires_at")
+        if expires_at_str:
+            expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+            if expires_at < datetime.utcnow():
+                raise HTTPException(status_code=400, detail="Invitation has expired")
         
-        if invite.is_accepted:
+        if invite_row.get("is_accepted"):
             raise HTTPException(status_code=400, detail="Invitation has already been accepted")
         
-        # Assign user to workspace and role
-        user_result = await db.execute(
-            select(User).where(User.id == user_id)
-        )
-        user = user_result.scalar_one_or_none()
+        # Update user in Supabase: set workspace_id and role
+        workspace_id = invite_row.get("workspace_id")
+        role = invite_row.get("role")
         
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found in database")
+        user_update_response = supabase.table("users").update({
+            "workspace_id": workspace_id,
+            "role": role
+        }).eq("id", user_id).execute()
         
-        # Update user's workspace and role to match invite
-        user.workspace_id = invite.workspace_id
-        user.role = invite.role
+        user_error = getattr(user_update_response, "error", None)
+        if user_error:
+            logger.error("accept_invite_user_update_error", error=str(user_error), user_id=user_id)
+            raise HTTPException(status_code=500, detail="Failed to update user")
         
         # Mark invite as accepted
-        invite.is_accepted = True
-        invite.accepted_at = datetime.utcnow()
-        invite.accepted_by_user_id = user.id
-        invite.used_at = datetime.utcnow()
+        now = datetime.utcnow().isoformat()
+        invite_update_response = supabase.table("workspace_invites").update({
+            "is_accepted": True,
+            "accepted_at": now,
+            "accepted_by_user_id": user_id,
+            "used_at": now
+        }).eq("id", invite_row.get("id")).execute()
         
-        await db.commit()
-        await db.refresh(user)
-        await db.refresh(invite)
+        invite_error = getattr(invite_update_response, "error", None)
+        if invite_error:
+            logger.error("accept_invite_update_error", error=str(invite_error), invite_id=invite_row.get("id"))
+            raise HTTPException(status_code=500, detail="Failed to accept invitation")
         
         logger.info(
             "invite_accepted",
             user_id=user_id,
-            workspace_id=str(invite.workspace_id),
-            role=invite.role.value if hasattr(invite.role, "value") else str(invite.role),
-        )
+            workspace_id=workspace_id,
+            role=role)
         
         return {
             "success": True,
             "message": "Invitation accepted",
-            "workspace_id": str(invite.workspace_id),
-            "role": invite.role.value if hasattr(invite.role, "value") else str(invite.role),
+            "workspace_id": workspace_id,
+            "role": role,
         }
         
     except HTTPException:
@@ -274,22 +285,18 @@ async def accept_invite(
             detail=str(e)
         )
 
-
 @router.post("/accept")
 async def accept_invite_body(
     payload: AcceptInviteRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """Accept a workspace invitation using JSON body with token (alias)."""
     return await accept_invite(payload.token, request, db)
 
-
 @router.delete("/{invite_id}", status_code=204)
 async def revoke_invite(
     invite_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
+    request: Request
 ):
     """
     Revoke (delete) an invitation
@@ -298,23 +305,25 @@ async def revoke_invite(
     """
     try:
         # Verify authentication and require admin role
-        user_id, user_data = await require_admin_role(request, db)
+        user_id, user_data = await require_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # Find invite belonging to this workspace
-        result = await db.execute(
-            select(WorkspaceInvite).where(
-                WorkspaceInvite.id == invite_id,
-                WorkspaceInvite.workspace_id == workspace_id,
-            )
-        )
-        invite = result.scalar_one_or_none()
+        supabase = get_supabase_service_client()
         
-        if not invite:
+        # Find invite belonging to this workspace
+        invite_response = supabase.table("workspace_invites").select("*").eq("id", invite_id).eq("workspace_id", workspace_id).maybe_single().execute()
+        invite_row = getattr(invite_response, "data", None)
+        
+        if not invite_row:
             raise HTTPException(status_code=404, detail="Invitation not found")
         
-        await db.delete(invite)
-        await db.commit()
+        # Delete the invite
+        delete_response = supabase.table("workspace_invites").delete().eq("id", invite_id).execute()
+        
+        error = getattr(delete_response, "error", None)
+        if error:
+            logger.error("revoke_invite_error", error=str(error), invite_id=invite_id)
+            raise HTTPException(status_code=500, detail="Failed to revoke invitation")
         
         logger.info("invite_revoked", invite_id=invite_id, workspace_id=workspace_id)
         

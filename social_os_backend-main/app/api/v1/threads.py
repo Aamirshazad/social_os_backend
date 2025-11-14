@@ -5,8 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
-# TODO: ThreadService needs to be implemented in new structure
-# from app.services.thread_service import ThreadService
+from app.application.services.thread_service import ThreadService
 from app.schemas.thread import (
     CreateThreadRequest,
     UpdateThreadTitleRequest,
@@ -35,33 +34,22 @@ async def get_threads(
         user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.get_workspace_threads
-        # For now, return a placeholder response
-        # result = ThreadService.get_workspace_threads(
-        #     db=db,
-        #     workspace_id=workspace_id,
-        #     limit=limit,
-        #     offset=offset,
-        #     include_deleted=include_deleted
-        # )
-        
-        logger.info(
-            "get_threads_placeholder",
+        # Get threads from database
+        result = await ThreadService.get_workspace_threads(
             workspace_id=workspace_id,
             limit=limit,
-            offset=offset
+            offset=offset,
+            include_deleted=include_deleted
         )
         
-        # Placeholder response until ThreadService is implemented
-        return {
-            "success": True,
-            "data": [],
-            "total": 0,
-            "limit": limit,
-            "offset": offset,
-            "hasMore": False,
-            "message": "Thread service not yet implemented"
-        }
+        logger.info(
+            "get_threads",
+            workspace_id=workspace_id,
+            count=len(result["items"]),
+            total=result["total"]
+        )
+        
+        return result
         
     except Exception as e:
         logger.error("get_threads_error", error=str(e))
@@ -83,30 +71,21 @@ async def create_thread(
         user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.create_thread
-        # For now, return a placeholder response
-        # thread = ThreadService.create_thread(
-        #     db=db,
-        #     workspace_id=workspace_id,
-        #     title=thread_request.title,
-        #     created_by=user_id
-        # )
-        
-        logger.info(
-            "create_thread_placeholder",
+        # Create thread in database
+        thread = await ThreadService.create_thread(
             workspace_id=workspace_id,
-            user_id=user_id,
-            title=thread_request.title
+            title=thread_request.title,
+            created_by=user_id
         )
         
-        # Placeholder response until ThreadService is implemented
-        return {
-            "success": True,
-            "message": "Thread creation service not yet implemented",
-            "title": thread_request.title,
-            "workspace_id": workspace_id,
-            "created_by": user_id
-        }
+        logger.info(
+            "create_thread",
+            thread_id=thread["id"],
+            workspace_id=workspace_id,
+            user_id=user_id
+        )
+        
+        return thread
         
     except Exception as e:
         logger.error("create_thread_error", error=str(e))
@@ -128,27 +107,19 @@ async def get_thread(
         user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.get_thread_by_id
-        # For now, return a placeholder response
-        # thread = ThreadService.get_thread_by_id(
-        #     db=db,
-        #     thread_id=thread_id,
-        #     workspace_id=workspace_id
-        # )
-        
-        logger.info(
-            "get_thread_placeholder",
+        # Get thread from database
+        thread = await ThreadService.get_thread_by_id(
             thread_id=thread_id,
             workspace_id=workspace_id
         )
         
-        # Placeholder response until ThreadService is implemented
-        return {
-            "success": True,
-            "message": "Thread retrieval service not yet implemented",
-            "thread_id": thread_id,
-            "workspace_id": workspace_id
-        }
+        logger.info(
+            "get_thread",
+            thread_id=thread_id,
+            workspace_id=workspace_id
+        )
+        
+        return thread
         
     except Exception as e:
         logger.error("get_thread_error", error=str(e))
@@ -171,29 +142,20 @@ async def update_thread_title(
         user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.update_thread_title
-        # For now, return a placeholder response
-        # thread = ThreadService.update_thread_title(
-        #     db=db,
-        #     thread_id=thread_id,
-        #     workspace_id=workspace_id,
-        #     title=title_request.title
-        # )
-        
-        logger.info(
-            "update_thread_title_placeholder",
+        # Update thread title in database
+        thread = await ThreadService.update_thread_title(
             thread_id=thread_id,
-            user_id=user_id,
+            workspace_id=workspace_id,
             title=title_request.title
         )
         
-        # Placeholder response until ThreadService is implemented
-        return {
-            "success": True,
-            "message": "Thread title update service not yet implemented",
-            "thread_id": thread_id,
-            "title": title_request.title
-        }
+        logger.info(
+            "update_thread_title",
+            thread_id=thread_id,
+            user_id=user_id
+        )
+        
+        return thread
         
     except Exception as e:
         logger.error("update_thread_title_error", error=str(e))
@@ -216,34 +178,26 @@ async def add_message(
         user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.add_message_to_thread
-        # For now, return a placeholder response
+        # Add message to thread in database
         message = {
             "role": message_request.role,
             "content": message_request.content
         }
         
-        # thread = ThreadService.add_message_to_thread(
-        #     db=db,
-        #     thread_id=thread_id,
-        #     workspace_id=workspace_id,
-        #     message=message
-        # )
+        thread = await ThreadService.add_message_to_thread(
+            thread_id=thread_id,
+            workspace_id=workspace_id,
+            message=message
+        )
         
         logger.info(
-            "add_message_placeholder",
+            "add_message",
             thread_id=thread_id,
             user_id=user_id,
             role=message_request.role
         )
         
-        # Placeholder response until ThreadService is implemented
-        return {
-            "success": True,
-            "message": "Add message service not yet implemented",
-            "thread_id": thread_id,
-            "new_message": message
-        }
+        return thread
         
     except Exception as e:
         logger.error("add_message_error", error=str(e))
@@ -266,31 +220,23 @@ async def update_messages(
         user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.update_thread_messages
-        # For now, return a placeholder response
+        # Update all messages in thread
         messages = [message.dict() for message in messages_request.messages]
         
-        # thread = ThreadService.update_thread_messages(
-        #     db=db,
-        #     thread_id=thread_id,
-        #     workspace_id=workspace_id,
-        #     messages=messages
-        # )
+        thread = await ThreadService.update_thread_messages(
+            thread_id=thread_id,
+            workspace_id=workspace_id,
+            messages=messages
+        )
         
         logger.info(
-            "update_messages_placeholder",
+            "update_messages",
             thread_id=thread_id,
             user_id=user_id,
             message_count=len(messages)
         )
         
-        # Placeholder response until ThreadService is implemented
-        return {
-            "success": True,
-            "message": "Update messages service not yet implemented",
-            "thread_id": thread_id,
-            "messages_count": len(messages)
-        }
+        return thread
         
     except Exception as e:
         logger.error("update_messages_error", error=str(e))
@@ -312,19 +258,16 @@ async def delete_thread(
         user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.delete_thread
-        # For now, return a placeholder response
-        # ThreadService.delete_thread(
-        #     db=db,
-        #     thread_id=thread_id,
-        #     workspace_id=workspace_id
-        # )
+        # Delete thread from database (soft delete)
+        await ThreadService.delete_thread(
+            thread_id=thread_id,
+            workspace_id=workspace_id
+        )
         
         logger.info(
-            "delete_thread_placeholder",
+            "delete_thread",
             thread_id=thread_id,
-            user_id=user_id,
-            workspace_id=workspace_id
+            user_id=user_id
         )
         
         return None
@@ -349,28 +292,19 @@ async def restore_thread(
         user_id, user_data = await require_editor_or_admin_role(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.restore_thread
-        # For now, return a placeholder response
-        # thread = ThreadService.restore_thread(
-        #     db=db,
-        #     thread_id=thread_id,
-        #     workspace_id=workspace_id
-        # )
-        
-        logger.info(
-            "restore_thread_placeholder",
+        # Restore thread in database
+        thread = await ThreadService.restore_thread(
             thread_id=thread_id,
-            user_id=user_id,
             workspace_id=workspace_id
         )
         
-        # Placeholder response until ThreadService is implemented
-        return {
-            "success": True,
-            "message": "Thread restore service not yet implemented",
-            "thread_id": thread_id,
-            "workspace_id": workspace_id
-        }
+        logger.info(
+            "restore_thread",
+            thread_id=thread_id,
+            user_id=user_id
+        )
+        
+        return thread
         
     except Exception as e:
         logger.error("restore_thread_error", error=str(e))
@@ -392,22 +326,19 @@ async def get_recent_threads(
         user_id, user_data = await verify_auth_and_get_user(request)
         workspace_id = user_data["workspace_id"]
         
-        # TODO: Implement ThreadService.get_recent_threads
-        # For now, return a placeholder response
-        # threads = ThreadService.get_recent_threads(
-        #     db=db,
-        #     workspace_id=workspace_id,
-        #     limit=limit
-        # )
-        
-        logger.info(
-            "get_recent_threads_placeholder",
+        # Get recent threads from database
+        threads = await ThreadService.get_recent_threads(
             workspace_id=workspace_id,
             limit=limit
         )
         
-        # Placeholder response until ThreadService is implemented
-        return []
+        logger.info(
+            "get_recent_threads",
+            workspace_id=workspace_id,
+            count=len(threads)
+        )
+        
+        return threads
         
     except Exception as e:
         logger.error("get_recent_threads_error", error=str(e))

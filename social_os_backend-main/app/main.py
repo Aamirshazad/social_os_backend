@@ -1,7 +1,7 @@
 """
 FastAPI Application Entry Point
 """
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -265,8 +265,31 @@ async def test_login():
     return {"message": "Test login endpoint working", "cors": "success"}
 
 
+# Test Supabase connection
+@app.get("/api/v1/test/supabase", tags=["Test"])
+async def test_supabase():
+    """Test Supabase connection and authentication"""
+    try:
+        from app.application.services.auth.authentication_service import AuthenticationService
+        supabase = AuthenticationService.get_supabase()
+        
+        # Test a simple query to check if Supabase is accessible
+        response = supabase.table('users').select("*").limit(1).execute()
+        
+        return {
+            "status": "success",
+            "supabase_connected": True,
+            "data": response.data if hasattr(response, 'data') else "No data returned"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "supabase_connected": False,
+            "error": str(e)
+        }
+
 # Database test endpoint
-@app.get("/test-db")
+@app.get("/api/v1/test/db", tags=["Test"])
 async def test_database():
     """Test database connectivity without authentication"""
     try:

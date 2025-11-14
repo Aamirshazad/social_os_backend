@@ -10,6 +10,7 @@ import structlog
 from app.models.credential import Credential
 from app.core.security import encryption
 from app.core.exceptions import NotFoundError
+from app.core.supabase import get_supabase_service_client
 
 logger = structlog.get_logger()
 
@@ -204,25 +205,36 @@ class CredentialService:
             List of credential summaries (without sensitive data)
         """
         try:
-            result = await db.execute(
-                select(Credential).where(Credential.workspace_id == workspace_id)
-            )
-            credentials = result.scalars().all()
-            
-            credential_list = []
-            for cred in credentials:
-                credential_list.append({
-                    "platform": cred.platform,
-                    "platform_user_id": cred.platform_user_id,
-                    "platform_username": cred.platform_username,
-                    "scopes": cred.scopes,
-                    "token_expires_at": cred.token_expires_at,
-                    "created_at": cred.created_at.isoformat() if cred.created_at else None,
-                    "updated_at": cred.updated_at.isoformat() if cred.updated_at else None
-                })
-            
+            # Use Supabase service client as the single source of truth for credential status
+            supabase = get_supabase_service_client()
+
+            response = supabase.table("social_accounts").select(
+                "platform, username, page_name, expires_at, credentials_encrypted, is_connected"
+            ).eq("workspace_id", workspace_id).execute()
+
+            rows = getattr(response, "data", None) or []
+
+            credential_list: List[Dict[str, Any]] = []
+            for row in rows:
+                has_credentials = bool(row.get("credentials_encrypted"))
+                expires_at = row.get("expires_at")
+
+                credential_list.append(
+                    {
+                        "platform": row.get("platform"),
+                        "platform_user_id": None,
+                        "platform_username": row.get("username") or row.get("page_name"),
+                        "scopes": None,
+                        "token_expires_at": expires_at,
+                        "created_at": None,
+                        "updated_at": None,
+                        # The platform credentials/status endpoint only cares if something exists
+                        # and when it expires; actual tokens remain encrypted server-side.
+                    }
+                )
+
             return credential_list
-            
+
         except Exception as e:
             logger.error("get_all_credentials_error", error=str(e), workspace_id=workspace_id)
             return []

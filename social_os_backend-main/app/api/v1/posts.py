@@ -16,6 +16,7 @@ from app.database import get_async_db
 from app.models.post import Post
 from app.models.enums import PostStatus
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
+from app.core.supabase import get_supabase_service_client
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -98,6 +99,26 @@ def serialize_post(db_post: Post) -> Dict[str, Any]:
     }
 
 
+def serialize_post_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Serialize Supabase row dict to the same snake_case response used by serialize_post."""
+    return {
+        "id": str(row.get("id")),
+        "workspace_id": str(row.get("workspace_id")),
+        "created_by": str(row.get("created_by")) if row.get("created_by") is not None else None,
+        "topic": row.get("topic"),
+        "platforms": row.get("platforms") or [],
+        "content": row.get("content") or {},
+        "status": row.get("status"),
+        "scheduled_at": row.get("scheduled_at").isoformat() if hasattr(row.get("scheduled_at"), "isoformat") and row.get("scheduled_at") else row.get("scheduled_at"),
+        "published_at": row.get("published_at").isoformat() if hasattr(row.get("published_at"), "isoformat") and row.get("published_at") else row.get("published_at"),
+        "campaign_id": str(row.get("campaign_id")) if row.get("campaign_id") else None,
+        "engagement_score": row.get("engagement_score"),
+        "engagement_suggestions": row.get("engagement_suggestions"),
+        "created_at": row.get("created_at").isoformat() if hasattr(row.get("created_at"), "isoformat") and row.get("created_at") else row.get("created_at"),
+        "updated_at": row.get("updated_at").isoformat() if hasattr(row.get("updated_at"), "isoformat") and row.get("updated_at") else row.get("updated_at"),
+    }
+
+
 @router.get("", response_model=PaginatedPostsResponse)
 async def get_posts(
     request: Request,
@@ -114,38 +135,45 @@ async def get_posts(
         if user_data["workspace_id"] != workspace_id:
             raise HTTPException(status_code=403, detail="Access denied to workspace")
 
-        count_query = select(func.count()).select_from(Post).where(Post.workspace_id == workspace_id)
+        # Use Supabase service client instead of direct database connection
+        supabase = get_supabase_service_client()
 
-        data_query = select(Post).where(Post.workspace_id == workspace_id)
+        # Build base query with count for pagination
+        try:
+            query = supabase.table("posts").select("*", count="exact").eq("workspace_id", workspace_id)
 
-        if status:
-            try:
-                status_enum = PostStatus(status)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid status value")
+            if status:
+                # Status is stored as a string in Supabase (matches Next.js implementation)
+                query = query.eq("status", status)
 
-            count_query = count_query.where(Post.status == status_enum)
-            data_query = data_query.where(Post.status == status_enum)
+            # Supabase range is inclusive, so end index is start + page_size - 1
+            start = (page - 1) * page_size
+            end = start + page_size - 1
 
-        total_result = await db.execute(count_query)
-        total = total_result.scalar_one() or 0
+            response = query.order("created_at", desc=True).range(start, end).execute()
 
-        data_query = data_query.order_by(Post.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-        result = await db.execute(data_query)
-        posts = result.scalars().all()
+            rows = getattr(response, "data", None) or []
+            total = getattr(response, "count", None)
+            if total is None:
+                total = len(rows)
 
-        items = [serialize_post(p) for p in posts]
-        pages = (total + page_size - 1) // page_size if total else 0
+            items = [serialize_post_row(row) for row in rows]
+            pages = (total + page_size - 1) // page_size if total else 0
 
-        logger.info("posts_fetched", count=len(items), workspace_id=workspace_id, user_id=user_id)
+            logger.info("posts_fetched", count=len(items), workspace_id=workspace_id, user_id=user_id)
 
-        return {
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "pages": pages,
-        }
+            return {
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "pages": pages,
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("supabase_get_posts_error", error=str(e), workspace_id=workspace_id)
+            raise HTTPException(status_code=500, detail="Failed to fetch posts")
 
     except HTTPException:
         raise

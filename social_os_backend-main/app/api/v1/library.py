@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.database import get_async_db
 from app.core.auth_helper import verify_auth_and_get_user, require_editor_or_admin_role
 from app.models.post_library import PostLibrary
+from app.core.supabase import get_supabase_service_client
 import structlog
 
 
@@ -61,6 +62,20 @@ def serialize_library_item(item: PostLibrary) -> dict:
     }
 
 
+def serialize_library_row(row: dict) -> dict:
+    """Serialize Supabase row dict to LibraryItemResponse-compatible dict."""
+    return {
+        "id": str(row.get("id")),
+        "workspace_id": str(row.get("workspace_id")),
+        "title": row.get("title") or "",
+        "content": row.get("content") or {},
+        "type": row.get("post_type") or "post",
+        "tags": row.get("platforms") or [],
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
 @router.get("", response_model=PaginatedLibraryResponse)
 async def get_library_posts(
     request: Request,
@@ -84,30 +99,43 @@ async def get_library_posts(
         if user_data["workspace_id"] != workspace_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to workspace")
 
-        count_query = select(func.count()).select_from(PostLibrary).where(PostLibrary.workspace_id == workspace_id)
-        data_query = select(PostLibrary).where(PostLibrary.workspace_id == workspace_id)
+        supabase = get_supabase_service_client()
 
-        if type:
-            count_query = count_query.where(PostLibrary.post_type == type)
-            data_query = data_query.where(PostLibrary.post_type == type)
+        try:
+            # Base query with exact count for pagination
+            query = supabase.table("post_library").select("*", count="exact").eq("workspace_id", workspace_id)
 
-        total_result = await db.execute(count_query)
-        total = total_result.scalar_one() or 0
+            if type:
+                query = query.eq("post_type", type)
 
-        data_query = data_query.order_by(PostLibrary.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-        result = await db.execute(data_query)
-        items = result.scalars().all()
+            start = (page - 1) * page_size
+            end = start + page_size - 1
 
-        serialized_items = [serialize_library_item(item) for item in items]
-        pages = (total + page_size - 1) // page_size if total else 0
+            response = query.order("created_at", desc=True).range(start, end).execute()
 
-        return {
-            "items": serialized_items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "pages": pages,
-        }
+            rows = getattr(response, "data", None) or []
+            total = getattr(response, "count", None)
+            if total is None:
+                total = len(rows)
+
+            serialized_items = [serialize_library_row(row) for row in rows]
+            pages = (total + page_size - 1) // page_size if total else 0
+
+            return {
+                "items": serialized_items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "pages": pages,
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("supabase_get_library_posts_error", error=str(e), workspace_id=workspace_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to fetch library items",
+            )
 
     except HTTPException:
         raise

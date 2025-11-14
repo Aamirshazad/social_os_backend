@@ -2,7 +2,7 @@
 Publisher Service - Multi-platform content publishing
 """
 from typing import Dict, Any, List
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 import structlog
 
@@ -10,7 +10,7 @@ from app.infrastructure.external.platforms import (
     TwitterPublisher, LinkedInPublisher, FacebookPublisher, 
     InstagramPublisher, YouTubePublisher, TikTokPublisher
 )
-# Note: CredentialService needs to be refactored - using placeholder for now
+from app.application.services.credential_service import CredentialService
 
 logger = structlog.get_logger()
 
@@ -30,7 +30,7 @@ class PublisherService:
     
     @staticmethod
     async def publish_to_platform(
-        db: Session,
+        db: AsyncSession,
         workspace_id: str,
         platform: str,
         content: str,
@@ -62,25 +62,24 @@ class PublisherService:
                 }
             
             platform_service = platform_service_class()
-            
+
             # Get credentials for platform
-            # TODO: Refactor CredentialService to new modular structure
-            # credentials = CredentialService.get_platform_credentials(
-            #     db, workspace_id, platform
-            # )
-            # Placeholder - assume credentials exist for now
-            credentials = type('obj', (object,), {'access_token': 'placeholder_token'})()
-            
-            if not credentials:
+            credentials = await CredentialService.get_platform_credentials(
+                db=db,
+                workspace_id=workspace_id,
+                platform=platform,
+            )
+
+            if not credentials or not credentials.get("access_token"):
                 return {
                     "success": False,
                     "error": f"No credentials found for {platform}",
-                    "platform": platform
+                    "platform": platform,
                 }
             
             # Publish to platform
             result = await platform_service.publish_post(
-                access_token=credentials.access_token,
+                access_token=credentials["access_token"],
                 content=content,
                 media_urls=media_urls,
                 **kwargs
@@ -99,13 +98,13 @@ class PublisherService:
     
     @staticmethod
     async def publish_to_multiple_platforms(
-        db: Session,
+        db: AsyncSession,
         workspace_id: str,
         platforms: List[str],
-        content: str,
+        content_by_platform: Dict[str, str],
         media_urls: List[str] = None,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """
         Publish content to multiple platforms simultaneously
         
@@ -121,46 +120,59 @@ class PublisherService:
             Dictionary with results for each platform
         """
         try:
-            # Create publishing tasks for each platform
+            # Create publishing tasks for each platform using platform-specific content
             tasks = []
             for platform in platforms:
-                task = PublisherService.publish_to_platform(
-                    db, workspace_id, platform, content, media_urls, **kwargs
-                )
-                tasks.append((platform, task))
-            
+                platform_content = content_by_platform.get(platform)
+                if not platform_content:
+                    # If no content provided for this platform, record as failure
+                    tasks.append((
+                        platform,
+                        asyncio.create_task(
+                            asyncio.sleep(0, result={
+                                "success": False,
+                                "error": f"No content provided for platform {platform}",
+                                "platform": platform,
+                            })
+                        ),
+                    ))
+                else:
+                    task = asyncio.create_task(
+                        PublisherService.publish_to_platform(
+                            db=db,
+                            workspace_id=workspace_id,
+                            platform=platform,
+                            content=platform_content,
+                            media_urls=media_urls,
+                            **kwargs,
+                        )
+                    )
+                    tasks.append((platform, task))
+
             # Execute all publishing tasks concurrently
-            results = {}
+            results: List[Dict[str, Any]] = []
             for platform, task in tasks:
                 try:
                     result = await task
-                    results[platform] = result
+                    results.append(result)
                 except Exception as e:
-                    results[platform] = {
-                        "success": False,
-                        "error": str(e),
-                        "platform": platform
-                    }
-            
-            # Calculate overall success
-            successful_platforms = [
-                platform for platform, result in results.items()
-                if result.get("success", False)
-            ]
-            
-            overall_result = {
-                "success": len(successful_platforms) > 0,
-                "total_platforms": len(platforms),
-                "successful_platforms": len(successful_platforms),
-                "failed_platforms": len(platforms) - len(successful_platforms),
-                "results": results
-            }
-            
-            logger.info("multi_platform_publish_completed", 
-                       successful=len(successful_platforms),
-                       total=len(platforms))
-            
-            return overall_result
+                    results.append(
+                        {
+                            "success": False,
+                            "error": str(e),
+                            "platform": platform,
+                        }
+                    )
+
+            successful_platforms = [r for r in results if r.get("success")]
+
+            logger.info(
+                "multi_platform_publish_completed",
+                successful=len(successful_platforms),
+                total=len(platforms),
+            )
+
+            return results
             
         except Exception as e:
             logger.error("multi_platform_publish_error", error=str(e))

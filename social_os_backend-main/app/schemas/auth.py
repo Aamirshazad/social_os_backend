@@ -6,35 +6,9 @@ from pydantic import BaseModel, EmailStr, Field, validator
 import re
 
 
-class UserInfo(BaseModel):
-    """User information in token response"""
-    id: str
-    email: str
-    full_name: Optional[str] = None
-    avatar_url: Optional[str] = None
-
-
-class Token(BaseModel):
-    """JWT token response with user info"""
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    user: UserInfo
-    workspace_id: Optional[str] = None
-    role: Optional[str] = None  # admin, editor, viewer
-
-
 class AuthSuccessResponse(BaseModel):
     """Simple success response for auth endpoints following Next.js pattern"""
     message: str
-
-
-class TokenData(BaseModel):
-    """Data stored in JWT token"""
-    sub: str  # user_id
-    email: Optional[str] = None
-    workspace_id: Optional[str] = None
-    role: Optional[str] = None  # admin, editor, viewer
 
 
 class RegisterRequest(BaseModel):
@@ -95,20 +69,4 @@ class LoginRequest(BaseModel):
         """Validate password is not empty"""
         if not v or not v.strip():
             raise ValueError('Password cannot be empty')
-        return v
-
-
-class RefreshTokenRequest(BaseModel):
-    """Refresh token request"""
-    refresh_token: str = Field(..., min_length=1, description="Refresh token is required")
-    
-    @validator('refresh_token')
-    def validate_refresh_token(cls, v):
-        """Validate refresh token is not empty"""
-        if not v or not v.strip():
-            raise ValueError('Refresh token cannot be empty')
-        # Basic JWT format validation (3 parts separated by dots)
-        parts = v.split('.')
-        if len(parts) != 3:
-            raise ValueError('Invalid token format')
         return v

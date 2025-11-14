@@ -165,26 +165,31 @@ async def get_credentials_status(
     request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """
-    Get status of all platform credentials
-    
-    Returns list of connected platforms with metadata
-    """
+    """Get status of all platform credentials for the current workspace."""
     # Verify authentication and get user data
     user_id, user_data = await verify_auth_and_get_user(request, db)
     workspace_id = user_data["workspace_id"]
-    
-    credentials = CredentialService.get_all_credentials(
+
+    # Use async credential service helper
+    credentials = await CredentialService.get_all_workspace_credentials(
         db=db,
-        workspace_id=workspace_id
+        workspace_id=workspace_id,
     )
-    
+
+    # Map to a simple status list the frontend expects
+    status_list = [
+        {
+            "platform": cred.get("platform"),
+            "connected": True,
+            "username": cred.get("platform_username"),
+            "expires_at": cred.get("token_expires_at"),
+        }
+        for cred in credentials
+    ]
+
     return {
         "success": True,
-        "data": {
-            "credentials": credentials,
-            "total": len(credentials)
-        }
+        "data": status_list,
     }
 
 
@@ -194,36 +199,42 @@ async def disconnect_platform(
     request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """
-    Disconnect a platform by deleting its credentials
-    """
+    """Disconnect a platform by deleting its credentials for the current workspace."""
     try:
         # Verify authentication and get user data
         user_id, user_data = await verify_auth_and_get_user(request, db)
         workspace_id = user_data["workspace_id"]
-        
-        CredentialService.delete_credential(
+
+        deleted = await CredentialService.delete_platform_credentials(
             db=db,
             workspace_id=workspace_id,
-            platform=platform
+            platform=platform,
         )
-        
+
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Credentials not found",
+            )
+
         logger.info(
             "platform_disconnected",
             platform=platform,
-            workspace_id=workspace_id
+            workspace_id=workspace_id,
         )
-        
+
         return {
             "success": True,
-            "message": f"{platform} disconnected successfully"
+            "message": f"{platform} disconnected successfully",
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("disconnect_error", platform=platform, error=str(e))
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to disconnect platform",
         )
 
 

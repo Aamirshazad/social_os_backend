@@ -26,6 +26,7 @@ class PostStatus(enum.Enum):
     DRAFT = "draft"
     NEEDS_APPROVAL = "needs_approval"
     APPROVED = "approved"
+    READY_TO_PUBLISH = "ready_to_publish"
     SCHEDULED = "scheduled"
     PUBLISHED = "published"
     FAILED = "failed"

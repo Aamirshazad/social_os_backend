@@ -21,7 +21,6 @@ from app.models.approval import Approval
 from app.models.analytics import PostAnalytics, CampaignAnalytics
 
 # Workspace management
-from app.models.workspace_member import WorkspaceMember, MemberRole
 from app.models.workspace_invite import WorkspaceInvite
 
 # Activity and audit
@@ -51,7 +50,7 @@ __all__ = [
     "PostContent", "PostPlatforms", "PostMedia", "Approval", "PostAnalytics", "CampaignAnalytics",
     
     # Workspace management
-    "WorkspaceMember", "MemberRole", "WorkspaceInvite",
+    "WorkspaceInvite",
     
     # Activity and audit
     "ActivityLog", "AuditLog", "CredentialAuditLog",

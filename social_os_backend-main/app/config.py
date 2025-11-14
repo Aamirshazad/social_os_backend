@@ -89,11 +89,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    # Supabase
-    SUPABASE_URL: str = Field(default="https://placeholder.supabase.co")
-    SUPABASE_KEY: str = Field(default="placeholder-key")
-    SUPABASE_SERVICE_ROLE_KEY: str = Field(default="placeholder-service-key")
-    SUPABASE_DB_PASSWORD: str = Field(default="placeholder-db-password")
+    # Supabase (optional for local development)
+    SUPABASE_URL: Optional[str] = Field(default=None, description="Supabase project URL")
+    SUPABASE_KEY: Optional[str] = Field(default=None, description="Supabase anon/public key")
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = Field(default=None, description="Supabase service role key")
+    SUPABASE_DB_PASSWORD: Optional[str] = Field(default=None, description="Database password (if using direct DB connection)")
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -179,7 +179,8 @@ class Settings(BaseSettings):
     
     model_config = {
         "env_file": ".env",
-        "case_sensitive": True
+        "case_sensitive": True,
+        "extra": "ignore"  # This will ignore extra fields in .env
     }
 
 

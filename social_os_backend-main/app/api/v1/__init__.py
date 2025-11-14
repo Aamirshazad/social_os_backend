@@ -10,13 +10,12 @@ def _setup_routes():
     """Setup routes lazily to avoid circular imports"""
     from . import (
         ai, posts, auth, workspaces, platforms,
-        library, campaigns, analytics, scheduler, oauth, media,
-        invites, members, activity, threads
+        library, campaigns, analytics, scheduler, media,
+        invites, members, activity, threads, oauth
     )
     
     # Include all sub-routers
     api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
-    api_router.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
     api_router.include_router(workspaces.router, prefix="/workspaces", tags=["workspaces"])
     api_router.include_router(invites.router, prefix="/invites", tags=["invites"])
     api_router.include_router(members.router, prefix="/members", tags=["members"])
@@ -30,6 +29,7 @@ def _setup_routes():
     api_router.include_router(media.router, prefix="/media", tags=["media"])
     api_router.include_router(threads.router, prefix="/threads", tags=["threads"])
     api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
+    api_router.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
 
 # Setup routes when this module is imported by main.py
 _setup_routes()

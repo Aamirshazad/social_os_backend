@@ -41,14 +41,16 @@ async def verify_auth_and_get_user(request: Request, db: AsyncSession) -> Tuple[
         # Verify token with Supabase
         supabase = AuthenticationService.get_supabase()
         user_response = supabase.auth.get_user(token)
-        
-        if not user_response.user:
+
+        # Handle case where Supabase client returns None or user is missing
+        if user_response is None or user_response.user is None:
             raise HTTPException(
-                status_code=401, 
+                status_code=401,
                 detail="Invalid or expired token"
             )
-        
-        user_id = str(user_response.user.id)
+
+        user = user_response.user
+        user_id = str(user.id)
         
         # Get user data from database
         from app.models.user import User
@@ -65,10 +67,11 @@ async def verify_auth_and_get_user(request: Request, db: AsyncSession) -> Tuple[
         
         user_data = {
             "id": user_id,
-            "email": user_response.user.email,
+            "email": user.email,
             "workspace_id": str(db_user.workspace_id),
             "role": db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role),
-            "is_active": db_user.is_active
+            "is_active": db_user.is_active,
+            "full_name": db_user.full_name,
         }
         
         return user_id, user_data

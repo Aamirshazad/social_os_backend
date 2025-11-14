@@ -1,7 +1,7 @@
 """
 Media API endpoints - File uploads
 """
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 import base64
@@ -26,44 +26,54 @@ class Base64UploadRequest(BaseModel):
 
 @router.post("/upload/image")
 async def upload_image(
-    file: UploadFile = File(...),
     request: Request,
-
-    ):
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_async_db)
+):
     """
     Upload an image file
     
     Supports: JPEG, PNG, GIF, WebP
     Max size: 10MB
     """
-    # Validate file type
-    if file.content_type not in settings.ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_IMAGE_TYPES)}"
-        )
-    
-    # Validate file size
-    contents = await file.read()
-    if len(contents) > settings.MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
-        )
-    
-    await file.seek(0)
-    
     try:
-        # Upload to storage
-        url = await media_service.upload_image(
-            file=file.file,
-            filename=file.filename,
-            workspace_id=workspace_id,
-            content_type=file.content_type
-        )
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
+        # Require editor or admin role
+        await require_editor_or_admin_role(user_data)
+        
+        # Validate file type
+        allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
+            )
+        
+        # Validate file size (10MB)
+        contents = await file.read()
+        max_size = 10 * 1024 * 1024  # 10MB
+        if len(contents) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Max size: {max_size / 1024 / 1024}MB"
+            )
+        
+        await file.seek(0)
+        
+        # TODO: Implement MediaService.upload_image
+        # For now, return a placeholder response
+        # url = await media_service.upload_image(
+        #     file=file.file,
+        #     filename=file.filename,
+        #     workspace_id=workspace_id,
+        #     content_type=file.content_type
+        # )
         
         logger.info(
-            "image_uploaded",
+            "image_upload_placeholder",
             workspace_id=workspace_id,
             filename=file.filename
         )
@@ -71,11 +81,11 @@ async def upload_image(
         return {
             "success": True,
             "data": {
-                "url": url,
+                "url": f"https://placeholder.com/uploads/{file.filename}",
                 "filename": file.filename,
                 "content_type": file.content_type
             },
-            "message": "Image uploaded successfully"
+            "message": "Image upload service not yet implemented"
         }
         
     except Exception as e:
@@ -88,36 +98,45 @@ async def upload_image(
 
 @router.post("/upload/video")
 async def upload_video(
-    file: UploadFile = File(...),
     request: Request,
-
-    ):
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_async_db)
+):
     """
     Upload a video file
     
     Supports: MP4, MOV, AVI, WebM
     Max size: 100MB
     """
-    # Validate file type
-    if file.content_type not in settings.ALLOWED_VIDEO_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_VIDEO_TYPES)}"
-        )
-    
-    # Note: For large videos, consider streaming upload
-    
     try:
-        # Upload to storage
-        url = await media_service.upload_video(
-            file=file.file,
-            filename=file.filename,
-            workspace_id=workspace_id,
-            content_type=file.content_type
-        )
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
+        # Require editor or admin role
+        await require_editor_or_admin_role(user_data)
+        
+        # Validate file type
+        allowed_types = ["video/mp4", "video/mov", "video/avi", "video/webm"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
+            )
+        
+        # Note: For large videos, consider streaming upload
+        
+        # TODO: Implement MediaService.upload_video
+        # For now, return a placeholder response
+        # url = await media_service.upload_video(
+        #     file=file.file,
+        #     filename=file.filename,
+        #     workspace_id=workspace_id,
+        #     content_type=file.content_type
+        # )
         
         logger.info(
-            "video_uploaded",
+            "video_upload_placeholder",
             workspace_id=workspace_id,
             filename=file.filename
         )
@@ -125,11 +144,11 @@ async def upload_video(
         return {
             "success": True,
             "data": {
-                "url": url,
+                "url": f"https://placeholder.com/uploads/{file.filename}",
                 "filename": file.filename,
                 "content_type": file.content_type
             },
-            "message": "Video uploaded successfully"
+            "message": "Video upload service not yet implemented"
         }
         
     except Exception as e:
@@ -142,19 +161,26 @@ async def upload_video(
 
 @router.post("/upload/base64")
 async def upload_base64(
-    request: Base64UploadRequest,
+    upload_request: Base64UploadRequest,
     request: Request,
-
-    ):
+    db: AsyncSession = Depends(get_async_db)
+):
     """
     Upload a base64 encoded file
     
     Used for uploading data URIs from canvas/generated images
     """
     try:
+        # Verify authentication and get user data
+        user_id, user_data = await verify_auth_and_get_user(request, db)
+        workspace_id = user_data["workspace_id"]
+        
+        # Require editor or admin role
+        await require_editor_or_admin_role(user_data)
+        
         # Decode base64
         # Handle data URI format (data:image/png;base64,xxxxx)
-        base64_data = request.base64Data
+        base64_data = upload_request.base64Data
         if "," in base64_data:
             header, base64_data = base64_data.split(",", 1)
             # Extract content type from header
@@ -172,31 +198,38 @@ async def upload_base64(
         from io import BytesIO
         file_obj = BytesIO(file_data)
         
+        # TODO: Implement MediaService.upload_image/upload_video
+        # For now, return a placeholder response
         # Upload based on type
-        if request.type == "image":
-            url = await media_service.upload_image(
-                file=file_obj,
-                filename=request.fileName,
-                workspace_id=workspace_id,
-                content_type=content_type
-            )
-        else:
-            url = await media_service.upload_video(
-                file=file_obj,
-                filename=request.fileName,
-                workspace_id=workspace_id,
-                content_type=content_type
-            )
+        # if upload_request.type == "image":
+        #     url = await media_service.upload_image(
+        #         file=file_obj,
+        #         filename=upload_request.fileName,
+        #         workspace_id=workspace_id,
+        #         content_type=content_type
+        #     )
+        # else:
+        #     url = await media_service.upload_video(
+        #         file=file_obj,
+        #         filename=upload_request.fileName,
+        #         workspace_id=workspace_id,
+        #         content_type=content_type
+        #     )
         
         logger.info(
-            "base64_uploaded",
+            "base64_upload_placeholder",
             workspace_id=workspace_id,
-            filename=request.fileName
+            filename=upload_request.fileName
         )
         
         return {
-            "url": url,
-            "message": "File uploaded successfully"
+            "success": True,
+            "data": {
+                "url": f"https://placeholder.com/uploads/{upload_request.fileName}",
+                "filename": upload_request.fileName,
+                "content_type": content_type
+            },
+            "message": "Base64 upload service not yet implemented"
         }
         
     except Exception as e:

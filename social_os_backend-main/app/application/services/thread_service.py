@@ -6,7 +6,7 @@ from datetime import datetime
 import uuid
 import structlog
 
-from app.infrastructure.database.supabase_client import get_supabase_client
+from app.core.supabase import get_supabase_client
 
 logger = structlog.get_logger()
 

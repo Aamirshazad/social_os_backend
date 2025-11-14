@@ -9,6 +9,7 @@ from sqlalchemy import select
 import structlog
 
 from app.application.services.auth.authentication_service import AuthenticationService
+from app.core.supabase import get_supabase_service_client
 
 logger = structlog.get_logger()
 
@@ -53,12 +54,13 @@ async def verify_auth_and_get_user(request: Request, db: AsyncSession) -> Tuple[
         user_id = str(user.id)
         
         # Get user data from database
-        from app.models.user import User
-        result = await db.execute(
-            select(User).where(User.id == user_id)
-        )
-        db_user = result.scalar_one_or_none()
-        
+        supabase_service = get_supabase_service_client()
+        response = supabase_service.table("users").select(
+            "workspace_id, role, is_active, full_name"
+        ).eq("id", user_id).maybe_single().execute()
+
+        db_user = getattr(response, "data", None)
+
         if not db_user:
             raise HTTPException(
                 status_code=404, 
@@ -68,10 +70,10 @@ async def verify_auth_and_get_user(request: Request, db: AsyncSession) -> Tuple[
         user_data = {
             "id": user_id,
             "email": user.email,
-            "workspace_id": str(db_user.workspace_id),
-            "role": db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role),
-            "is_active": db_user.is_active,
-            "full_name": db_user.full_name,
+            "workspace_id": str(db_user.get("workspace_id")),
+            "role": db_user.get("role"),
+            "is_active": db_user.get("is_active"),
+            "full_name": db_user.get("full_name"),
         }
         
         return user_id, user_data
